@@ -5,6 +5,8 @@ Copyright © 2021 Sentry
 package web_server
 
 import (
+	"fmt"
+	"github.com/getsentry/go-load-tester/tests"
 	"github.com/gin-gonic/gin"
 	"log"
 	"time"
@@ -21,15 +23,19 @@ const (
 func RunWebServer(port string) {
 	cmdChannel := make(chan Command)
 	defer close(cmdChannel)
+	paramChannel := make(chan tests.TestParams)
+	defer close(paramChannel)
+	gin.SetMode(gin.ReleaseMode)
 	engine := gin.Default()
+
 	engine.GET("/command/:commandId/*rest", withCommandChannel(cmdChannel, commandHandler))
-	go worker(cmdChannel)
-	engine.Run()
-	//http.HandleFunc("/command/", commandHandler)
-	//if len(port) > 0 {
-	//	port = fmt.Sprintf(":%s", port)
-	//}
+	go worker(cmdChannel, paramChannel)
+	if len(port) > 0 {
+		port = fmt.Sprintf(":%s", port)
+	}
 	//log.Fatal(http.ListenAndServe(port, nil))
+	engine.SetTrustedProxies([]string{})
+	engine.Run(port)
 }
 
 type handlerWithCommand func(chan<- Command, *gin.Context)
@@ -58,7 +64,7 @@ func commandHandler(cmd chan<- Command, ctx *gin.Context) {
 
 }
 
-func worker(cmd <-chan Command) {
+func worker(cmd <-chan Command, parameters <-chan tests.TestParams) {
 	for {
 		select {
 		case command := <-cmd:
