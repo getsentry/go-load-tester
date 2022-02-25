@@ -9,7 +9,7 @@ import (
 
 func GetAuthHeader() string {
 	//TODO need project key from settings (either CLI or config file)
-	projectKey := "<TODO_PROJECT_KEY_HERE>"
+	projectKey := "123"
 	return fmt.Sprintf("Sentry sentry_key=%s,sentry_version=7", projectKey)
 }
 

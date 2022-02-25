@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -65,8 +66,9 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 
 		tgt.Method = "POST"
 
-		tgt.URL = url
-
+		//tgt.URL = url
+		tgt.URL = "www.google.com"
+		tgt.Header = make(http.Header)
 		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader())
 		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
 
@@ -76,6 +78,7 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 		}
 
 		tgt.Body = body
+		log.Printf("Attacking at %v", time.Now())
 		return nil
 	}
 }

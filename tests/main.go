@@ -15,17 +15,20 @@ import "sync"
 //
 // Name is used to dispatch to the relevant test
 type TestParams struct {
-	Name   string          `json:"name"`
-	Params json.RawMessage `json:"params"`
-}
-
-// TimingParams are what controls the duration and intensity of an attack, they become the pacer and duration passed
-// to the attack
-type TimingParams struct {
+	Name           string
+	Params         json.RawMessage
 	AttackDuration time.Duration // total time of Attack
 	NumMessages    int           // number of messages to be sent in Per
 	Per            time.Duration // the unit of duration in which to send NumMessages
 }
+
+//// TimingParams are what controls the duration and intensity of an attack, they become the pacer and duration passed
+//// to the attack
+//type TimingParams struct {
+//	AttackDuration time.Duration // total time of Attack
+//	NumMessages    int           // number of messages to be sent in Per
+//	Per            time.Duration // the unit of duration in which to send NumMessages
+//}
 
 // ConfigurableTargeterBuilder is a function that when given a URL and a read channel of
 // raw JSON messages returns a vegeta.Targeter that is able to change the events it generates
@@ -56,21 +59,25 @@ var converters = struct {
 	targeterBuilders: make(map[string]ConfigurableTargeterBuilder),
 }
 
-type timingParamsRaw struct {
+type testParamsRaw struct {
+	Name           string
+	Params         json.RawMessage
 	AttackDuration string
 	NumMessages    int
 	Per            string
 }
 
-func (t TimingParams) intoRaw() timingParamsRaw {
-	return timingParamsRaw{
+func (t TestParams) intoRaw() testParamsRaw {
+	return testParamsRaw{
 		AttackDuration: t.AttackDuration.String(),
 		NumMessages:    t.NumMessages,
 		Per:            t.Per.String(),
+		Name:           t.Name,
+		Params:         t.Params,
 	}
 }
 
-func (raw timingParamsRaw) into(result *TimingParams) error {
+func (raw testParamsRaw) into(result *TestParams) error {
 	var err error
 
 	if result == nil {
@@ -97,14 +104,16 @@ func (raw timingParamsRaw) into(result *TimingParams) error {
 	result.AttackDuration = attackDuration
 	result.Per = per
 	result.NumMessages = raw.NumMessages
+	result.Name = raw.Name
+	result.Params = raw.Params
 	return nil
 }
 
-func (t *TimingParams) UnmarshalJSON(b []byte) error {
+func (t *TestParams) UnmarshalJSON(b []byte) error {
 	if t == nil {
 		return errors.New("nil value passed as deserialization target")
 	}
-	var raw timingParamsRaw
+	var raw testParamsRaw
 	var err error
 	if err = json.Unmarshal(b, &raw); err != nil {
 		return err
@@ -112,15 +121,15 @@ func (t *TimingParams) UnmarshalJSON(b []byte) error {
 	return raw.into(t)
 }
 
-func (t TimingParams) MarshalJSON() ([]byte, error) {
+func (t TestParams) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.intoRaw())
 }
 
-func (t *TimingParams) UnmarshalYaml(b []byte) error {
+func (t *TestParams) UnmarshalYaml(b []byte) error {
 	if t == nil {
 		return errors.New("nil value passed as deserialization target")
 	}
-	var raw timingParamsRaw
+	var raw testParamsRaw
 
 	var err error
 	if err = yaml.Unmarshal(b, &raw); err != nil {
@@ -129,6 +138,6 @@ func (t *TimingParams) UnmarshalYaml(b []byte) error {
 	return raw.into(t)
 }
 
-func (t TimingParams) MarshalYaml() ([]byte, error) {
+func (t TestParams) MarshalYaml() ([]byte, error) {
 	return yaml.Marshal(t.intoRaw())
 }
