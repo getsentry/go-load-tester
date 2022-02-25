@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
-	"github.com/getsentry/go-load-tester/utils"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
+
+	"github.com/getsentry/go-load-tester/utils"
 )
 
 // SessionJob is how a session load test is parameterized
@@ -26,10 +28,6 @@ type SessionJob struct {
 	ErroredWeight   int64
 	CrashedWeight   int64
 	AbnormalWeight  int64
-}
-
-func (s SessionJob) Name() string {
-	return "session"
 }
 
 // Session serialisation format for sessions
@@ -52,18 +50,13 @@ type Session struct {
 // NewSessionTargeter returns a targeter that listens over a channel for changes
 // to the session generation spec and creates requests (i.e. Target(s)) matching
 // the configuration
-func NewSessionTargeter(url string, session <-chan SessionJob) vegeta.Targeter {
+func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter {
 	var sessionParams SessionJob
-	//var paramsReceived bool = false
-	go func() {
-		for {
-			//TODO is this safe ?
-			sessionParams = <-session
-			// from now on we have some valid parameters
-			// we received something from the channel at least once
-			//paramsReceived = true
-		}
-	}()
+	err := json.Unmarshal(rawSession, &sessionParams)
+	if err != nil {
+		log.Printf("invalid session params received, error:\n %s\nraw data\n%s\n",
+			err, rawSession)
+	}
 
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
@@ -119,11 +112,11 @@ func (s *SessionJob) UnmarshalJSON(b []byte) error {
 	if err = json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	return loadFromRaw(raw, s)
+	return raw.into(s)
 }
 
 func (s SessionJob) MarshalJSON() ([]byte, error) {
-	return json.Marshal(intoRaw(s))
+	return json.Marshal(s.intoRaw())
 }
 
 func (s *SessionJob) UnmarshalYaml(b []byte) error {
@@ -136,14 +129,14 @@ func (s *SessionJob) UnmarshalYaml(b []byte) error {
 	if err = yaml.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	return loadFromRaw(raw, s)
+	return raw.into(s)
 }
 
 func (s SessionJob) MarshalYaml() ([]byte, error) {
-	return yaml.Marshal(intoRaw(s))
+	return yaml.Marshal(s.intoRaw())
 }
 
-func intoRaw(s SessionJob) sessionJobRaw {
+func (s SessionJob) intoRaw() sessionJobRaw {
 	return sessionJobRaw{
 		StartedRange:    s.StartedRange.String(),
 		DurationRange:   s.DurationRange.String(),
@@ -158,11 +151,11 @@ func intoRaw(s SessionJob) sessionJobRaw {
 	}
 }
 
-func loadFromRaw(raw sessionJobRaw, result *SessionJob) error {
+func (raw sessionJobRaw) into(result *SessionJob) error {
 	var err error
 
 	if result == nil {
-		return errors.New("loadFromRaw called with nil result")
+		return errors.New("into called with nil result")
 	}
 
 	var startedRange time.Duration
@@ -207,4 +200,8 @@ type sessionJobRaw struct {
 	ErroredWeight   int64  `json:"errored_weight" yaml:"errored_weight"`
 	CrashedWeight   int64  `json:"crashed_weight" yaml:"crashed_weight"`
 	AbnormalWeight  int64  `json:"abnormal_weight" yaml:"abnormal_weight"`
+}
+
+func init() {
+	RegisterTargeter("session", NewSessionTargeter)
 }

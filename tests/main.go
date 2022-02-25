@@ -1,8 +1,134 @@
 package tests
 
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	vegeta "github.com/tsenart/vegeta/lib"
+	"gopkg.in/yaml.v2"
+)
+import "sync"
+
 // TestParams is Implemented by all parameter test classes.
 //
 // Name is used to dispatch to the relevant test
-type TestParams interface {
-	Name() string
+type TestParams struct {
+	Name   string          `json:"name"`
+	Params json.RawMessage `json:"params"`
+}
+
+// TimingParams are what controls the duration and intensity of an attack, they become the pacer and duration passed
+// to the attack
+type TimingParams struct {
+	AttackDuration time.Duration // total time of Attack
+	NumMessages    int           // number of messages to be sent in Per
+	Per            time.Duration // the unit of duration in which to send NumMessages
+}
+
+// ConfigurableTargeterBuilder is a function that when given a URL and a read channel of
+// raw JSON messages returns a vegeta.Targeter that is able to change the events it generates
+// to reflect the parameter passed through the JSON messages channel.
+// Note: the raw JSON messages received through the channel need to be "compatible" with the specific
+// targeter. Getting the proper builder for a type of message is outside this function's responsibilities
+// (the dispatch is done via GetTargeter inside the worker)
+type ConfigurableTargeterBuilder func(url string, params json.RawMessage) vegeta.Targeter
+
+func RegisterTargeter(name string, builder ConfigurableTargeterBuilder) {
+	converters.lock.Lock()
+	defer converters.lock.Unlock()
+	converters.targeterBuilders[name] = builder
+}
+
+// GetTargeter returns the TargeterBuilder for a particular type of message. The name represents the
+// type of load message passed
+func GetTargeter(name string) ConfigurableTargeterBuilder {
+	converters.lock.Lock()
+	defer converters.lock.Unlock()
+	return converters.targeterBuilders[name]
+}
+
+var converters = struct {
+	targeterBuilders map[string]ConfigurableTargeterBuilder
+	lock             sync.Mutex
+}{
+	targeterBuilders: make(map[string]ConfigurableTargeterBuilder),
+}
+
+type timingParamsRaw struct {
+	AttackDuration string
+	NumMessages    int
+	Per            string
+}
+
+func (t TimingParams) intoRaw() timingParamsRaw {
+	return timingParamsRaw{
+		AttackDuration: t.AttackDuration.String(),
+		NumMessages:    t.NumMessages,
+		Per:            t.Per.String(),
+	}
+}
+
+func (raw timingParamsRaw) into(result *TimingParams) error {
+	var err error
+
+	if result == nil {
+		return errors.New("into called with nil result")
+	}
+
+	var attackDuration time.Duration
+
+	if len(raw.AttackDuration) > 0 {
+		attackDuration, err = time.ParseDuration(raw.AttackDuration)
+	}
+	if err != nil {
+		return fmt.Errorf("deserialization error, invalid duration %s passed to attackDuration", raw.AttackDuration)
+	}
+
+	var per time.Duration
+
+	if len(raw.Per) > 0 {
+		per, err = time.ParseDuration(raw.Per)
+	}
+	if err != nil {
+		return fmt.Errorf("deserialization error, invalid duration %s passed to per", raw.Per)
+	}
+	result.AttackDuration = attackDuration
+	result.Per = per
+	result.NumMessages = raw.NumMessages
+	return nil
+}
+
+func (t *TimingParams) UnmarshalJSON(b []byte) error {
+	if t == nil {
+		return errors.New("nil value passed as deserialization target")
+	}
+	var raw timingParamsRaw
+	var err error
+	if err = json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	return raw.into(t)
+}
+
+func (t TimingParams) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.intoRaw())
+}
+
+func (t *TimingParams) UnmarshalYaml(b []byte) error {
+	if t == nil {
+		return errors.New("nil value passed as deserialization target")
+	}
+	var raw timingParamsRaw
+
+	var err error
+	if err = yaml.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	return raw.into(t)
+}
+
+func (t TimingParams) MarshalYaml() ([]byte, error) {
+	return yaml.Marshal(t.intoRaw())
 }

@@ -6,10 +6,13 @@ package web_server
 
 import (
 	"fmt"
-	"github.com/getsentry/go-load-tester/tests"
-	"github.com/gin-gonic/gin"
+	vegeta "github.com/tsenart/vegeta/lib"
 	"log"
 	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/getsentry/go-load-tester/tests"
 )
 
 type Command int32
@@ -102,3 +105,83 @@ func worker(cmd <-chan Command, parameters <-chan tests.TestParams) {
 
 	}
 }
+
+func createTargeter(params tests.TestParams) vegeta.Targeter {
+	targeterBuilder := tests.GetTargeter(params.Name)
+	if targeterBuilder == nil {
+		log.Printf("Invalid attack type %s", params.Name)
+		return nil
+	}
+	return targeterBuilder("TODO-the_url", params.Params)
+
+}
+
+func worker2(timingChan <-chan tests.TimingParams, paramsChan <-chan tests.TestParams) {
+	var timing *tests.TimingParams
+	var targeter vegeta.Targeter
+	attaker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0))
+	var params tests.TestParams
+
+	for {
+		select {
+		case timing = <-timingChan:
+		case params = <-paramsChan:
+			targeter = createTargeter(params)
+		default:
+			if timing != nil && targeter != nil {
+				var metrics vegeta.Metrics
+				rate := vegeta.Rate{Freq: timing.NumMessages, Per: timing.Per}
+			attack:
+				for res := range attaker.Attack(targeter, rate, timing.AttackDuration, "TODO some name for the attack") {
+					metrics.Add(res)
+					select {
+					case timing = <-timingChan:
+						break attack // starts a new attack
+					case params = <-paramsChan:
+						targeter = createTargeter(params)
+						break attack // starts a new attack
+					default:
+						continue
+					}
+				}
+				// finish current attack reset timing
+				timing = nil
+				metrics.Close()             //TODO do something with the metrics or don't collect them
+				time.Sleep(1 * time.Second) // sleep a bit so we don't busy spin when there is no attack
+			}
+		}
+
+	}
+
+}
+
+/*
+Worker structure (just pseudo code for now)
+
+func worker2(paceChan <-chan Pace, paramsChan <-chan TestParams) {
+	var pace *Pace
+	var params *TestParams
+	for {
+		if pace != nil && params != nil {
+		attackLoop:
+			for res := attacker.Attack(pace, params) {
+				// process response
+				select {
+				case params2 := <-paramsChan:
+				//pass p2 to the new targeter
+				case pace2 := <-paceChan:
+					if pace2 == STOP {
+						pace = nil
+					} else {
+						pace = pace2
+					}
+					break attackLoop
+				default:
+					continue // just continue the attack
+				}
+			}
+		}
+	}
+
+}
+*/
