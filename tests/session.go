@@ -8,14 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
 
 	"github.com/getsentry/go-load-tester/utils"
 )
+
+const timeFormat = "2006-01-02T03:04:05.000Z"
 
 // SessionJob is how a session load test is parameterized
 type SessionJob struct {
@@ -66,8 +70,7 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 
 		tgt.Method = "POST"
 
-		//tgt.URL = url
-		tgt.URL = "www.google.com"
+		tgt.URL = url
 		tgt.Header = make(http.Header)
 		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader())
 		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
@@ -83,20 +86,64 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 	}
 }
 
-func getSessionBody(sessionParams SessionJob) ([]byte, error) {
+func getSessionBody(sp SessionJob) ([]byte, error) {
 	var session Session
 
-	//TODO set session fields from SessionJob parameters
+	// Logic copied from ingest-load-tester session_event_task_factory
+	maxDurationDeviation := sp.DurationRange
+	maxStartDeviation := sp.StartedRange
+	now := time.Now().UTC()
+	baseStart := now.Add(-maxStartDeviation - maxDurationDeviation)
+	startDeviation := time.Duration(rand.Int63n(int64(maxDurationDeviation)))
+	staredTime := baseStart.Add(startDeviation)
+	duration := float64(rand.Int63n(int64(maxStartDeviation))) / float64(time.Second)
+	started := staredTime.Format(timeFormat)
+	timestamp := now.Format(timeFormat)
+	release := fmt.Sprintf("r-1.0.%d", rand.Int63n(sp.NumReleases))
+	environment := fmt.Sprintf("environment-%d", rand.Int63n(sp.NumEnvironments))
+	status := utils.RandomChoice([]string{"ok", "exited", "errored", "crashed", "abnormal"},
+		[]int64{sp.OkWeight, sp.ExitedWeight, sp.ErroredWeight, sp.CrashedWeight, sp.AbnormalWeight})
+	init := true
+	seq := int64(0)
+
+	if status != "ok" {
+		init = false
+		seq = rand.Int63n(5)
+	}
+
+	var errs int64 = 0
+	if status == "errored" {
+		errs = rand.Int63n(19) + 1
+	}
+
+	userId := fmt.Sprintf("u-%d", rand.Int63n(sp.NumUsers))
+	sessionId, err := uuid.NewUUID()
+	sessionIdStr := utils.UuidAsHex(sessionId)
+	eventId, err := uuid.NewUUID()
+	eventIdStr := utils.UuidAsHex(eventId)
+
+	session = Session{
+		Init:      init,
+		Started:   started,
+		Status:    status,
+		Errors:    errs,
+		Duration:  duration,
+		SessionId: sessionIdStr,
+		UserId:    userId,
+		Timestamp: timestamp,
+		Sequence:  seq,
+	}
+	session.Attributes.Environment = environment
+	session.Attributes.Release = release
 
 	body, err := json.Marshal(session)
 	if err != nil {
 		return nil, err
 	}
-	var sentAt time.Time //TODO set sentAt
-	var eventId string   // TODO set event ID
+
 	var buff *bytes.Buffer
 
-	buff, err = utils.SessionEnvelopeFromBody(eventId, sentAt, body)
+	buff, err = utils.SessionEnvelopeFromBody(eventIdStr, now, body)
 	if err != nil {
 		return nil, err
 	}

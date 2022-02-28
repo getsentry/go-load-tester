@@ -16,6 +16,7 @@ import "sync"
 // Name is used to dispatch to the relevant test
 type TestParams struct {
 	Name           string
+	Description    string
 	Params         json.RawMessage
 	AttackDuration time.Duration // total time of Attack
 	NumMessages    int           // number of messages to be sent in Per
@@ -61,6 +62,7 @@ var converters = struct {
 
 type testParamsRaw struct {
 	Name           string
+	Description    string
 	Params         json.RawMessage
 	AttackDuration string
 	NumMessages    int
@@ -73,6 +75,7 @@ func (t TestParams) intoRaw() testParamsRaw {
 		NumMessages:    t.NumMessages,
 		Per:            t.Per.String(),
 		Name:           t.Name,
+		Description:    t.Description,
 		Params:         t.Params,
 	}
 }
@@ -105,6 +108,7 @@ func (raw testParamsRaw) into(result *TestParams) error {
 	result.Per = per
 	result.NumMessages = raw.NumMessages
 	result.Name = raw.Name
+	result.Description = raw.Description
 	result.Params = raw.Params
 	return nil
 }

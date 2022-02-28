@@ -18,7 +18,7 @@ var workerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("worker called")
 		fmt.Printf("port is %s \n", runConfig.port)
-		web_server.RunWebServer(runConfig.port)
+		web_server.RunWebServer(runConfig.port, runConfig.targetUrl)
 	},
 }
 

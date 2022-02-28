@@ -10,7 +10,8 @@ import (
 )
 
 type runCliParams struct {
-	port string
+	port      string
+	targetUrl string
 }
 
 var runConfig runCliParams
@@ -31,16 +32,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 
 	runCmd.PersistentFlags().StringVarP(&runConfig.port, "port", "p", "8000", "port to listen to")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// runCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	runCmd.PersistentFlags().StringVarP(&runConfig.targetUrl, "target-url", "t", "", "target URL for the attack")
 }
 
 func run(cmd *cobra.Command, args []string) {
