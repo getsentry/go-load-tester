@@ -1,15 +1,20 @@
-# use w d h m s for weeks days hours minutes seconds e.g. 3w2d4h3s = 3 weeks 2 days 4 hours 3 seconds
-# the higher the range the more buckets will be created (Relay accepts ranges of up to 5 days from now)
-# (started_range + duration_range should be under 5 days)
-started_range: 2m
-# controls the range of the duration field (see started_range for valid values).
-duration_range: 1m
-num_releases: 1 # number of releases that will appear in the session messages
-num_environments: 1 # number of environments that will appear in session
-num_users: 1000 # number of different users generated
-# relative weights of various outcomes (set it to 0 to disable a certain outcome)
-ok_weight: 2
-exited_weight: 10
-errored_weight: 1
-crashed_weight: 1
-abnormal_weight: 1
+name: session,
+attackDuration: 40s,
+numMessages: 1,
+per: 1s,
+params:
+  # use w d h m s for weeks days hours minutes seconds e.g. 3w2d4h3s = 3 weeks 2 days 4 hours 3 seconds
+  # the higher the range the more buckets will be created (Relay accepts ranges of up to 5 days from now)
+  # (started_range + duration_range should be under 5 days)
+  started_range: 2m
+  # controls the range of the duration field (see started_range for valid values).
+  duration_range: 1m
+  num_releases: 1 # number of releases that will appear in the session messages
+  num_environments: 1 # number of environments that will appear in session
+  num_users: 1000 # number of different users generated
+  # relative weights of various outcomes (set it to 0 to disable a certain outcome)
+  ok_weight: 2
+  exited_weight: 10
+  errored_weight: 1
+  crashed_weight: 1
+  abnormal_weight: 1

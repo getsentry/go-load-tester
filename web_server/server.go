@@ -70,10 +70,10 @@ func createTargeter(params tests.TestParams) vegeta.Targeter {
 
 func worker(paramsChan <-chan tests.TestParams) {
 	var targeter vegeta.Targeter
-	attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0))
 	var params tests.TestParams
 
 	for {
+	attack:
 		select {
 		case params = <-paramsChan:
 			targeter = createTargeter(params)
@@ -81,12 +81,13 @@ func worker(paramsChan <-chan tests.TestParams) {
 			if targeter != nil {
 				var metrics vegeta.Metrics
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
-			attack:
+				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, "TODO some name for the attack") {
 					metrics.Add(res)
 					select {
 					case params = <-paramsChan:
 						targeter = createTargeter(params)
+						attacker.Stop()
 						break attack // starts a new attack
 					default:
 						continue
