@@ -11,7 +11,7 @@ import (
 	"github.com/getsentry/go-load-tester/tests"
 )
 
-func RunWebServer(port string, targetUrl string) {
+func RunWorkerWebServer(port string, targetUrl string) {
 
 	paramChannel := make(chan tests.TestParams)
 	defer close(paramChannel)

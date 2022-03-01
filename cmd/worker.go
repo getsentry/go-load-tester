@@ -6,8 +6,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/getsentry/go-load-tester/web_server"
+
 	"github.com/spf13/cobra"
+
+	"github.com/getsentry/go-load-tester/web_server"
 )
 
 // workerCmd represents the worker command
@@ -18,7 +20,7 @@ var workerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("worker called")
 		fmt.Printf("port is %s \n", runConfig.port)
-		web_server.RunWebServer(runConfig.port, runConfig.targetUrl)
+		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl)
 	},
 }
 
