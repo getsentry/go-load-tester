@@ -29,6 +29,7 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string) {
 	engine.GET("/stop/", withParamChannel(paramChannel, workerStopHandler))
 	engine.POST("/stop/", withParamChannel(paramChannel, workerStopHandler))
 	engine.POST("/command/", withParamChannel(paramChannel, workerCommandHandler))
+	engine.GET("/ping", pingHandler)
 	go worker(targetUrl, paramChannel)
 	go registerWithMaster(port, masterUrl)
 	if len(port) > 0 {
@@ -118,10 +119,15 @@ func withParamChannel(paramsChannel chan<- tests.TestParams, handler handlerWith
 	}
 }
 
+func pingHandler(ctx *gin.Context) {
+	//just reply with a 200
+	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
 // workerStopHandler handle stop requests
 func workerStopHandler(params chan<- tests.TestParams, ctx *gin.Context) {
 	params <- tests.TestParams{} // send a "0" params will be interpreted as a "Stop request"
-	ctx.String(200, "Stopping requested")
+	ctx.String(http.StatusOK, "Stopping requested")
 }
 
 // workerCommandHandler handle command requests
@@ -129,10 +135,10 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 	var params tests.TestParams
 	err := ctx.BindJSON(&params)
 	if err != nil {
-		ctx.String(400, "Could not parse body")
+		ctx.String(http.StatusBadRequest, "Could not parse body")
 	}
 	cmd <- params
-	ctx.String(200, "Command Accepted")
+	ctx.String(http.StatusOK, "Command Accepted")
 
 }
 
