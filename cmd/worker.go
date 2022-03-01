@@ -12,6 +12,10 @@ import (
 	"github.com/getsentry/go-load-tester/web_server"
 )
 
+var runWorkerParams struct {
+	masterUrl string
+}
+
 // workerCmd represents the worker command
 var workerCmd = &cobra.Command{
 	Use:   "worker",
@@ -20,10 +24,11 @@ var workerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("worker called")
 		fmt.Printf("port is %s \n", runConfig.port)
-		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl)
+		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl, runWorkerParams.masterUrl)
 	},
 }
 
 func init() {
 	runCmd.AddCommand(workerCmd)
+	workerCmd.Flags().StringVarP(&runWorkerParams.masterUrl, "master-url", "m", "", "Registers worker with the specified master")
 }

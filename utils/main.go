@@ -3,12 +3,15 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"log"
 	"math/rand"
+	"net"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func GetAuthHeader() string {
@@ -96,4 +99,64 @@ func RandomChoice(choices []string, relativeWeights []int64) string {
 func UuidAsHex(id uuid.UUID) string {
 	idStr := id.String()
 	return strings.Replace(idStr, "-", "", -1)
+}
+
+func GetExternalIPv4() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("are you connected to the network?")
+}
+
+// ExponentialBackoff returns an exponentially increasing Duration
+//
+// the duration will increase until the maximum duration is reached after which it will
+// return that duration forever.
+// This is not thread safe and should only be called from one goroutine per backoff function.
+func ExponentialBackoff(initial time.Duration, maximum time.Duration, factor float64) func() time.Duration {
+	if factor < 1 {
+		log.Printf("ExponentailBackoff called with invalid backof factor %f, factor should be > 1, will set it to 2", factor)
+		factor = 2
+	}
+	current := initial
+
+	return func() time.Duration {
+		retVal := current
+		current = time.Duration(float64(current) * factor)
+
+		if retVal > maximum {
+			return maximum
+		}
+		return retVal
+	}
 }

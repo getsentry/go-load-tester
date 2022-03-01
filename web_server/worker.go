@@ -1,9 +1,17 @@
 package web_server
 
+/*
+Contains code for the Worker web server
+*/
+
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/getsentry/go-load-tester/utils"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,17 +19,18 @@ import (
 	"github.com/getsentry/go-load-tester/tests"
 )
 
-func RunWorkerWebServer(port string, targetUrl string) {
+func RunWorkerWebServer(port string, targetUrl string, masterUrl string) {
 
 	paramChannel := make(chan tests.TestParams)
 	defer close(paramChannel)
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.Default()
 
-	engine.GET("/stop/", withParamChannel(paramChannel, stopHandler))
-	engine.POST("/stop/", withParamChannel(paramChannel, stopHandler))
-	engine.POST("/command/", withParamChannel(paramChannel, commandHandler))
+	engine.GET("/stop/", withParamChannel(paramChannel, workerStopHandler))
+	engine.POST("/stop/", withParamChannel(paramChannel, workerStopHandler))
+	engine.POST("/command/", withParamChannel(paramChannel, workerCommandHandler))
 	go worker(targetUrl, paramChannel)
+	go registerWithMaster(port, masterUrl)
 	if len(port) > 0 {
 		port = fmt.Sprintf(":%s", port)
 	}
@@ -31,6 +40,77 @@ func RunWorkerWebServer(port string, targetUrl string) {
 
 type handlerWithCommand func(chan<- tests.TestParams, *gin.Context)
 
+// registerWithMaster tries to register the current worker with a master
+func registerWithMaster(port string, masterUrl string) {
+	if len(masterUrl) == 0 {
+		log.Printf("No master url specified, running in independent mode")
+		return // do not try to register to master
+	}
+	registrationUrl := fmt.Sprintf("%s/register/", masterUrl)
+	log.Printf("Trying to register with master at: %s\n", registrationUrl)
+	c := http.Client{Timeout: time.Duration(2) * time.Second}
+
+	ipAddr, err := utils.GetExternalIPv4()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	workerUrl := fmt.Sprintf("%s:%s", ipAddr, port)
+	body, err := createRegistrationBody(workerUrl)
+	log.Printf("Body is%v\n", body)
+	if err != nil {
+		log.Printf("could not create registration body:\n%s\n", err)
+		return
+	}
+	req, err := http.NewRequest("POST", registrationUrl, body)
+	if err != nil {
+		log.Printf("Could not create registration request:\n%s\n", err)
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	backoff := utils.ExponentialBackoff(time.Second*5, time.Second*30, 1.4)
+	for {
+		// try registering until success or unrecoverable error
+		resp, err := c.Do(req)
+		var status int
+		if resp != nil {
+			status = resp.StatusCode
+			_ = resp.Body.Close()
+		}
+		if err == nil {
+			if status < 300 {
+				// registration successful
+				log.Printf("Registration successful\n")
+				break
+			}
+			if status >= 300 && status < 500 {
+				// we can't handle redirects or client errors, no point in trying again
+				log.Printf("error returned from master: %d\n", status)
+				break
+			}
+		}
+		nextTry := backoff()
+		log.Printf("Failed to register with master trying again in %v, status:%d, err:%s\n", nextTry, status, err)
+		// if we are here there was either a 5xx or some network error, try latter after backoff
+		time.Sleep(nextTry)
+	}
+}
+
+// createRegistrationBody creates the body of a "registration with master" request
+//
+// this is a JSON like e.g. {"workerUrl": "140.10.10.200:8088"}
+func createRegistrationBody(workerUrl string) (*bytes.Buffer, error) {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	err := enc.Encode(struct {
+		WorkerUrl string `json:"workerUrl"`
+	}{workerUrl})
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
 // withParamChannel constructs a Gin handler from a handler that also accepts a command channel
 func withParamChannel(paramsChannel chan<- tests.TestParams, handler handlerWithCommand) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -38,14 +118,14 @@ func withParamChannel(paramsChannel chan<- tests.TestParams, handler handlerWith
 	}
 }
 
-// stopHandler handle stop requests
-func stopHandler(params chan<- tests.TestParams, ctx *gin.Context) {
+// workerStopHandler handle stop requests
+func workerStopHandler(params chan<- tests.TestParams, ctx *gin.Context) {
 	params <- tests.TestParams{} // send a "0" params will be interpreted as a "Stop request"
 	ctx.String(200, "Stopping requested")
 }
 
-// commandHandler handle command requests
-func commandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
+// workerCommandHandler handle command requests
+func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 	var params tests.TestParams
 	err := ctx.BindJSON(&params)
 	if err != nil {
