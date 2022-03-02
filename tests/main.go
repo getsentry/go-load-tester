@@ -11,25 +11,22 @@ import (
 )
 import "sync"
 
-// TestParams is Implemented by all parameter test classes.
+// TestParams is Implemented by all parameter test classes
 //
-// Name is used to dispatch to the relevant test
+// This is how commands are passed in http requests
+// There are 3 main parts to the params:
+//	1. Details about the attack duration and intensity ( AttackDuration, Per, NumMessages)
+//  2. Type of the attack, (the Name field) used to dispatch the attack to the appropriate targeter
+//  3. Parameters specific to the attack (used by the targeter) Params (structure depends on the targeter used)
+//  The Description field is optional and used for documenting the attack (e.g. in reporting)
 type TestParams struct {
 	Name           string
 	Description    string
-	Params         json.RawMessage
 	AttackDuration time.Duration // total time of Attack
 	NumMessages    int           // number of messages to be sent in Per
 	Per            time.Duration // the unit of duration in which to send NumMessages
+	Params         json.RawMessage
 }
-
-//// TimingParams are what controls the duration and intensity of an attack, they become the pacer and duration passed
-//// to the attack
-//type TimingParams struct {
-//	AttackDuration time.Duration // total time of Attack
-//	NumMessages    int           // number of messages to be sent in Per
-//	Per            time.Duration // the unit of duration in which to send NumMessages
-//}
 
 // ConfigurableTargeterBuilder is a function that when given a URL and a read channel of
 // raw JSON messages returns a vegeta.Targeter that is able to change the events it generates

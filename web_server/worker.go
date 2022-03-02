@@ -19,6 +19,12 @@ import (
 	"github.com/getsentry/go-load-tester/tests"
 )
 
+// registerWorkerRequest is the body of the register http request sent by a worker
+// to register to a master.
+type registerWorkerRequest struct {
+	WorkerUrl string `json:"workerUrl"`
+}
+
 func RunWorkerWebServer(port string, targetUrl string, masterUrl string) {
 
 	paramChannel := make(chan tests.TestParams)
@@ -30,6 +36,7 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string) {
 	engine.POST("/stop/", withParamChannel(paramChannel, workerStopHandler))
 	engine.POST("/command/", withParamChannel(paramChannel, workerCommandHandler))
 	engine.GET("/ping", pingHandler)
+	engine.POST("/ping", pingHandler)
 	go worker(targetUrl, paramChannel)
 	go registerWithMaster(port, masterUrl)
 	if len(port) > 0 {
@@ -56,7 +63,7 @@ func registerWithMaster(port string, masterUrl string) {
 		log.Println(err)
 		return
 	}
-	workerUrl := fmt.Sprintf("%s:%s", ipAddr, port)
+	workerUrl := fmt.Sprintf("http://%s:%s", ipAddr, port)
 	body, err := createRegistrationBody(workerUrl)
 	log.Printf("Body is%v\n", body)
 	if err != nil {
@@ -103,9 +110,7 @@ func registerWithMaster(port string, masterUrl string) {
 func createRegistrationBody(workerUrl string) (*bytes.Buffer, error) {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
-	err := enc.Encode(struct {
-		WorkerUrl string `json:"workerUrl"`
-	}{workerUrl})
+	err := enc.Encode(registerWorkerRequest{workerUrl})
 	if err != nil {
 		return nil, err
 	}

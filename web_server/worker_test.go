@@ -16,9 +16,7 @@ func TestCreateRegistrationBody(t *testing.T) {
 		t.Errorf("createRegistrationBody returned nil body")
 	}
 
-	var actual struct {
-		WorkerUrl string `json:"workerUrl"`
-	}
+	var actual registerWorkerRequest
 
 	err = json.Unmarshal(data.Bytes(), &actual)
 
