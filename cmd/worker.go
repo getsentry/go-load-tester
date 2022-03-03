@@ -22,7 +22,7 @@ var workerCmd = &cobra.Command{
 	Long:  `Runs in worker mode waiting to execute commands sent via the command endpoint`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info().Msgf("Running load tester in worker mode at port: %s", runConfig.port)
-		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl, runWorkerParams.masterUrl)
+		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl, runWorkerParams.masterUrl, runConfig.statsdAddr)
 	},
 }
 

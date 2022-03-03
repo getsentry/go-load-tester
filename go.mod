@@ -3,6 +3,7 @@ module github.com/getsentry/go-load-tester
 go 1.17
 
 require (
+	github.com/DataDog/datadog-go/v5 v5.1.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
@@ -14,6 +15,7 @@ require (
 )
 
 require (
+	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/bmizerany/perks v0.0.0-20141205001514-d9a9656a3a4b // indirect
 	github.com/dgryski/go-gk v0.0.0-20200319235926-a69029f61654 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect

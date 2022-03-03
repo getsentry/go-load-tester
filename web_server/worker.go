@@ -8,15 +8,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/getsentry/go-load-tester/utils"
-	vegeta "github.com/tsenart/vegeta/lib"
 	"net/http"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+	vegeta "github.com/tsenart/vegeta/lib"
 
 	"github.com/getsentry/go-load-tester/tests"
+	"github.com/getsentry/go-load-tester/utils"
 )
 
 // registerWorkerRequest is the body of the register http request sent by a worker
@@ -25,7 +26,7 @@ type registerWorkerRequest struct {
 	WorkerUrl string `json:"workerUrl"`
 }
 
-func RunWorkerWebServer(port string, targetUrl string, masterUrl string) {
+func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdAddr string) {
 
 	paramChannel := make(chan tests.TestParams)
 	defer close(paramChannel)
@@ -37,7 +38,7 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string) {
 	engine.POST("/command/", withParamChannel(paramChannel, workerCommandHandler))
 	engine.GET("/ping", pingHandler)
 	engine.POST("/ping", pingHandler)
-	go worker(targetUrl, paramChannel)
+	go worker(targetUrl, statsdAddr, paramChannel)
 	go registerWithMaster(port, masterUrl)
 	if len(port) > 0 {
 		port = fmt.Sprintf(":%s", port)
@@ -55,7 +56,7 @@ func registerWithMaster(port string, masterUrl string) {
 		return // do not try to register to master
 	}
 	registrationUrl := fmt.Sprintf("%s/register/", masterUrl)
-	log.Info().Msgf("Trying to register with master at: %s\n", registrationUrl)
+	log.Info().Msgf("Trying to register with master at: %s", registrationUrl)
 	c := http.Client{Timeout: time.Duration(2) * time.Second}
 
 	ipAddr, err := utils.GetExternalIPv4()
@@ -66,12 +67,12 @@ func registerWithMaster(port string, masterUrl string) {
 	workerUrl := fmt.Sprintf("http://%s:%s", ipAddr, port)
 	body, err := createRegistrationBody(workerUrl)
 	if err != nil {
-		log.Error().Msgf("could not create registration body:\n%s\n", err)
+		log.Error().Msgf("could not create registration body:\n%s", err)
 		return
 	}
 	req, err := http.NewRequest("POST", registrationUrl, body)
 	if err != nil {
-		log.Error().Msgf("Could not create registration request:\n%s\n", err)
+		log.Error().Msgf("Could not create registration request:\n%s", err)
 		return
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -87,12 +88,12 @@ func registerWithMaster(port string, masterUrl string) {
 		if err == nil {
 			if status < 300 {
 				// registration successful
-				log.Info().Msgf("Registration successful\n")
+				log.Info().Msgf("Registration successful")
 				break
 			}
 			if status >= 300 && status < 500 {
 				// we can't handle redirects or client errors, no point in trying again
-				log.Error().Msgf("error returned from master: %d\n", status)
+				log.Error().Msgf("error returned from master: %d", status)
 				break
 			}
 		}
@@ -166,10 +167,11 @@ func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 // The worker uses a command channel to accept new commands
 // Once a command is received the current attack (if there is a current attack)
 // is stopped and a new attack started
-func worker(targetUrl string, paramsChan <-chan tests.TestParams) {
+func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestParams) {
 	var targeter vegeta.Targeter
 	var params tests.TestParams
-
+	var statsdClient = getStatsd(statsdAddr)
+	var noTags = []string{}
 	for {
 	attack:
 		select {
@@ -177,11 +179,14 @@ func worker(targetUrl string, paramsChan <-chan tests.TestParams) {
 			targeter = createTargeter(targetUrl, params)
 		default:
 			if targeter != nil {
-				var metrics vegeta.Metrics
+				// var metrics vegeta.Metrics // not used at the moment metrics.Add(res)
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
-					metrics.Add(res)
+					fmt.Printf("%s", res.Latency)
+					if statsdClient != nil {
+						_ = statsdClient.Timing("req-latency", res.Latency, noTags, 1)
+					}
 					select {
 					case params = <-paramsChan:
 						targeter = createTargeter(targetUrl, params)
@@ -193,9 +198,30 @@ func worker(targetUrl string, paramsChan <-chan tests.TestParams) {
 				}
 				// finish current attack reset timing
 				targeter = nil
-				metrics.Close()             //TODO do something with the metrics or don't collect them
 				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
 			}
 		}
 	}
+}
+
+func getStatsd(statsdAddr string) *statsd.Client {
+	if len(statsdAddr) == 0 {
+		log.Warn().Msgf("No statsd configured, will not emit stasd metrics")
+		return nil
+	}
+	var client, err = statsd.New(statsdAddr)
+	if err != nil {
+		log.Error().Msgf("Could not connect to stastd backend\n%v", err)
+		return nil
+	}
+	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
+	ip, err := utils.GetExternalIPv4()
+	if err != nil {
+		log.Error().Msgf("Could not get worker IP, messages will not be tagged\n%s", err)
+	} else {
+		var serverTag = fmt.Sprintf("worker_ip=%s", ip)
+		statsd.WithTags([]string{serverTag})
+	}
+	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
+	return client
 }

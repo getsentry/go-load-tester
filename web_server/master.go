@@ -102,7 +102,7 @@ func ForwardAttack(params tests.TestParams) {
 	params.Per = time.Duration(len(workerUrls)) * params.Per
 	newParams, err := json.Marshal(params)
 	if err != nil {
-		log.Error().Msgf("Error generating request\n%s", err)
+		log.Error().Msgf("Error generating request%s", err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func ForwardAttack(params tests.TestParams) {
 			}
 			resp, err := client.Do(req)
 			if err != nil {
-				log.Error().Msgf(" error sending command to client '%s': \n%s\n", workerUrl, err)
+				log.Error().Msgf(" error sending command to client '%s': \n%s", workerUrl, err)
 			}
 			if resp != nil {
 				_ = resp.Body.Close()

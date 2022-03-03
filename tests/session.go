@@ -59,7 +59,7 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 	var sessionParams SessionJob
 	err := json.Unmarshal(rawSession, &sessionParams)
 	if err != nil {
-		log.Error().Msgf("invalid session params received, error:\n %s\nraw data\n%s\n",
+		log.Error().Msgf("invalid session params received, error:\n %s\nraw data\n%s",
 			err, rawSession)
 	}
 

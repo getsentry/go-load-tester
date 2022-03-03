@@ -9,8 +9,9 @@ import (
 )
 
 type runCliParams struct {
-	port      string
-	targetUrl string
+	port       string
+	targetUrl  string
+	statsdAddr string
 }
 
 var runConfig runCliParams
@@ -29,4 +30,5 @@ func init() {
 
 	runCmd.PersistentFlags().StringVarP(&runConfig.port, "port", "p", "8000", "port to listen to")
 	runCmd.PersistentFlags().StringVarP(&runConfig.targetUrl, "target-url", "t", "", "target URL for the attack")
+	runCmd.PersistentFlags().StringVar(&runConfig.statsdAddr, "statsd-server", "", "ip:port for the statsd server")
 }
