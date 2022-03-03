@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 func GetAuthHeader() string {
@@ -90,7 +90,7 @@ func RandomChoice(choices []string, relativeWeights []int64) string {
 		}
 	}
 	// we shouldn't get here
-	log.Printf("Internal error RandomChoice")
+	log.Error().Msg("Internal error RandomChoice")
 	return choices[lc-1]
 
 }
@@ -145,7 +145,7 @@ func GetExternalIPv4() (string, error) {
 // This is not thread safe and should only be called from one goroutine per backoff function.
 func ExponentialBackoff(initial time.Duration, maximum time.Duration, factor float64) func() time.Duration {
 	if factor < 1 {
-		log.Printf("ExponentailBackoff called with invalid backof factor %f, factor should be > 1, will set it to 2", factor)
+		log.Warn().Msgf("ExponentialBackoff called with invalid backoff factor %f, factor should be > 1, will set it to 2", factor)
 		factor = 2
 	}
 	current := initial

@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/getsentry/go-load-tester/tests"
 )
@@ -58,18 +58,13 @@ func addWorker(url string) {
 		}
 	}
 	masterState.workers = append(masterState.workers, url)
-	log.Printf("Register worker at: %s", url)
+	log.Info().Msgf("Register worker at: %s", url)
 }
 
 func removeWorker(url string) {
 	masterState.lock.Lock()
 	defer masterState.lock.Unlock()
 	var l = len(masterState.workers)
-
-	var x int
-	var a = make([]int, 7)
-	x, a = a[len(a)-1], a[:len(a)-1]
-	fmt.Printf("%d", x)
 
 	for idx, workerUrl := range masterState.workers {
 		if workerUrl == url {
@@ -81,7 +76,6 @@ func removeWorker(url string) {
 }
 
 func RunMasterWebServer(port string) {
-	fmt.Println("Master web server")
 	gin.SetMode(gin.ReleaseMode)
 	var engine = gin.Default()
 
@@ -94,23 +88,21 @@ func RunMasterWebServer(port string) {
 		port = fmt.Sprintf(":%s", port)
 	}
 	_ = engine.SetTrustedProxies([]string{})
-	fmt.Println("About to run the engine")
 	_ = engine.Run(port)
-	fmt.Println("Finished running the engine")
 }
 
 func ForwardAttack(params tests.TestParams) {
 	checkWorkersStatus()
 	var workerUrls = getWorkers()
 	if len(workerUrls) == 0 {
-		log.Println("Cannot forward attack, no workers registered")
+		log.Error().Msg("Cannot forward attack, no workers registered")
 		return
 	}
 	// divide attack intensity among workers
 	params.Per = time.Duration(len(workerUrls)) * params.Per
 	newParams, err := json.Marshal(params)
 	if err != nil {
-		log.Println("Error generating request")
+		log.Error().Msgf("Error generating request\n%s", err)
 		return
 	}
 
@@ -122,12 +114,12 @@ func ForwardAttack(params tests.TestParams) {
 			var commandUrl = fmt.Sprintf("%s/command/", workerUrl)
 			req, err := http.NewRequest("POST", commandUrl, body)
 			if err != nil {
-				log.Println(err)
+				log.Err(err)
 				return
 			}
 			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf(" error sending command to client '%s': \n%s\n", workerUrl, err)
+				log.Error().Msgf(" error sending command to client '%s': \n%s\n", workerUrl, err)
 			}
 			if resp != nil {
 				_ = resp.Body.Close()
@@ -167,16 +159,15 @@ func checkWorkersStatus() {
 
 func masterStopHandler(ctx *gin.Context) {
 	//no need to refresh clients
-	log.Println("stop handler called")
+	log.Info().Msg("stop handler called")
 	var workerUrls = getWorkers()
 	var client = getDefaultHttpClient()
-	log.Println("about to send to workers")
 	for _, worker := range workerUrls {
 		go func(workerUrl string) {
 			var pingUrl = fmt.Sprintf("%s/stop/", workerUrl)
 			var resp, err = client.Get(pingUrl)
 			if err != nil {
-				log.Printf("Could not send request to client %s", workerUrl)
+				log.Error().Msgf("Could not send request to client %s", workerUrl)
 			}
 			defer resp.Body.Close()
 
@@ -187,9 +178,9 @@ func masterStopHandler(ctx *gin.Context) {
 
 func masterCommandHandler(ctx *gin.Context) {
 	var params tests.TestParams
-	log.Println("command handler called")
+	log.Info().Msg("command handler called")
 	if err := ctx.ShouldBindJSON(&params); err != nil {
-		log.Println("Could not parse command")
+		log.Error().Msg("Could not parse command")
 		ctx.JSON(http.StatusBadRequest, "Could not parse command")
 		return
 	}
@@ -204,7 +195,7 @@ func masterRegisterHandler(ctx *gin.Context) {
 		addWorker(workerReq.WorkerUrl)
 		ctx.JSON(http.StatusOK, okJsonResponse())
 	} else {
-		log.Println("Error while trying to register worker")
+		log.Error().Msg("Error while trying to register worker")
 		ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not parse registration request"))
 	}
 }
@@ -215,7 +206,7 @@ func masterUnregisterHandler(ctx *gin.Context) {
 		removeWorker(workerReq.WorkerUrl)
 		ctx.JSON(http.StatusOK, okJsonResponse())
 	} else {
-		log.Println("Error while trying to unregister worker")
+		log.Error().Msg("Error while trying to unregister worker")
 		ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not register request"))
 	}
 }

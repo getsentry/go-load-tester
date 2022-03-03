@@ -5,7 +5,6 @@ Copyright © 2021 Sentry
 package cmd
 
 import (
-	"fmt"
 	"github.com/spf13/cobra"
 )
 
@@ -21,9 +20,6 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Runs the load tester",
 	Long:  `Run the load tester either a worker or as a controller`,
-	Run: func(cmd *cobra.Command, args []string) {
-		run(cmd, args)
-	},
 	PreRun: func(cmd *cobra.Command, args []string) {
 	},
 }
@@ -33,9 +29,4 @@ func init() {
 
 	runCmd.PersistentFlags().StringVarP(&runConfig.port, "port", "p", "8000", "port to listen to")
 	runCmd.PersistentFlags().StringVarP(&runConfig.targetUrl, "target-url", "t", "", "target URL for the attack")
-}
-
-func run(cmd *cobra.Command, args []string) {
-	fmt.Println("Run in standalone mode")
-	fmt.Printf("port is %s /n", runConfig.port)
 }

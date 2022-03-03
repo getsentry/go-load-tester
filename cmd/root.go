@@ -5,14 +5,20 @@ Copyright © 2021 Sentry
 package cmd
 
 import (
-	"fmt"
 	"os"
+	"strings"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var rootConfig struct {
+	cfgFile  string
+	useColor bool
+	logLevel string
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -42,22 +48,44 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.go-load-tester.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().StringVar(&rootConfig.cfgFile, "config", "", "config file (default is $HOME/.go-load-tester.yaml)")
+	rootCmd.PersistentFlags().StringVar(&rootConfig.logLevel, "log", "error", "Log level: trace, info, warn, (error), fatal, panic")
+	rootCmd.PersistentFlags().BoolVar(&rootConfig.useColor, "color", false, "Use color (only for console output).")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" {
+	//setup logging
+	var consoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: !rootConfig.useColor,
+		TimeFormat: "15:04:05"}
+	log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
+
+	var logLevel zerolog.Level
+
+	switch strings.ToLower(rootConfig.logLevel) {
+	case "t", "trc", "trace":
+		logLevel = zerolog.TraceLevel
+	case "i", "inf", "info":
+		logLevel = zerolog.InfoLevel
+	case "w", "warn", "warning":
+		logLevel = zerolog.WarnLevel
+	case "e", "err", "error":
+		logLevel = zerolog.ErrorLevel
+	case "f", "fatal":
+		logLevel = zerolog.FatalLevel
+	case "p", "panic":
+		logLevel = zerolog.PanicLevel
+	case "d", "dis", "disable", "disabled":
+		logLevel = zerolog.Disabled
+	default:
+		logLevel = zerolog.ErrorLevel
+	}
+
+	zerolog.SetGlobalLevel(logLevel)
+
+	if rootConfig.cfgFile != "" {
 		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
+		viper.SetConfigFile(rootConfig.cfgFile)
 	} else {
 		// Find home directory.
 		home, err := os.Getwd()
@@ -73,8 +101,9 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		log.Info().Msgf("Using config file:%s", viper.ConfigFileUsed())
 	} else {
-		fmt.Println("Could not find config file")
+		log.Warn().Msg("Could not find config file")
 	}
+
 }

@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"github.com/getsentry/go-load-tester/utils"
 	vegeta "github.com/tsenart/vegeta/lib"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/getsentry/go-load-tester/tests"
 )
@@ -51,28 +51,27 @@ type handlerWithCommand func(chan<- tests.TestParams, *gin.Context)
 // registerWithMaster tries to register the current worker with a master
 func registerWithMaster(port string, masterUrl string) {
 	if len(masterUrl) == 0 {
-		log.Printf("No master url specified, running in independent mode")
+		log.Info().Msg("No master url specified, running in independent mode")
 		return // do not try to register to master
 	}
 	registrationUrl := fmt.Sprintf("%s/register/", masterUrl)
-	log.Printf("Trying to register with master at: %s\n", registrationUrl)
+	log.Info().Msgf("Trying to register with master at: %s\n", registrationUrl)
 	c := http.Client{Timeout: time.Duration(2) * time.Second}
 
 	ipAddr, err := utils.GetExternalIPv4()
 	if err != nil {
-		log.Println(err)
+		log.Err(err)
 		return
 	}
 	workerUrl := fmt.Sprintf("http://%s:%s", ipAddr, port)
 	body, err := createRegistrationBody(workerUrl)
-	log.Printf("Body is%v\n", body)
 	if err != nil {
-		log.Printf("could not create registration body:\n%s\n", err)
+		log.Error().Msgf("could not create registration body:\n%s\n", err)
 		return
 	}
 	req, err := http.NewRequest("POST", registrationUrl, body)
 	if err != nil {
-		log.Printf("Could not create registration request:\n%s\n", err)
+		log.Error().Msgf("Could not create registration request:\n%s\n", err)
 		return
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -88,17 +87,17 @@ func registerWithMaster(port string, masterUrl string) {
 		if err == nil {
 			if status < 300 {
 				// registration successful
-				log.Printf("Registration successful\n")
+				log.Info().Msgf("Registration successful\n")
 				break
 			}
 			if status >= 300 && status < 500 {
 				// we can't handle redirects or client errors, no point in trying again
-				log.Printf("error returned from master: %d\n", status)
+				log.Error().Msgf("error returned from master: %d\n", status)
 				break
 			}
 		}
 		nextTry := backoff()
-		log.Printf("Failed to register with master trying again in %v, status:%d, err:%s\n", nextTry, status, err)
+		log.Error().Msgf("Failed to register with master trying again in %v, status:%d, err:%s\n", nextTry, status, err)
 		// if we are here there was either a 5xx or some network error, try latter after backoff
 		time.Sleep(nextTry)
 	}
@@ -150,12 +149,12 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 // createTargeter creates a targeter for the passed test parameters
 func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 	if params.AttackDuration == 0 {
-		log.Printf("Zero attack duration, stopping")
+		log.Info().Msg("Zero attack duration, stopping")
 		return nil
 	}
 	targeterBuilder := tests.GetTargeter(params.Name)
 	if targeterBuilder == nil {
-		log.Printf("Invalid attack type %s", params.Name)
+		log.Error().Msgf("Invalid attack type %s", params.Name)
 		return nil
 	}
 	return targeterBuilder(targetUrl, params.Params)

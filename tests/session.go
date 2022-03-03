@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
 
@@ -59,7 +59,7 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 	var sessionParams SessionJob
 	err := json.Unmarshal(rawSession, &sessionParams)
 	if err != nil {
-		log.Printf("invalid session params received, error:\n %s\nraw data\n%s\n",
+		log.Error().Msgf("invalid session params received, error:\n %s\nraw data\n%s\n",
 			err, rawSession)
 	}
 
@@ -81,7 +81,7 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 		}
 
 		tgt.Body = body
-		log.Printf("Attacking at %v", time.Now())
+		log.Trace().Msg("Attacking")
 		return nil
 	}
 }
