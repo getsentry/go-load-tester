@@ -149,6 +149,7 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 
 // createTargeter creates a targeter for the passed test parameters
 func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
+	log.Trace().Msgf("Creating targeter:%v", params)
 	if params.AttackDuration == 0 {
 		log.Info().Msg("Zero attack duration, stopping")
 		return nil
@@ -178,7 +179,6 @@ func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestPar
 			targeter = createTargeter(targetUrl, params)
 		default:
 			if targeter != nil {
-				// var metrics vegeta.Metrics // not used at the moment metrics.Add(res)
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
