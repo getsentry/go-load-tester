@@ -70,9 +70,13 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 
 		tgt.Method = "POST"
 
-		tgt.URL = url
+		//TODO add more sophisticated projectId/projectKey generation
+		projectId := "1"
+		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
+
+		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", url, projectId)
 		tgt.Header = make(http.Header)
-		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader())
+		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader(projectKey))
 		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
 
 		body, err := getSessionBody(sessionParams)
@@ -88,15 +92,20 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 
 func getSessionBody(sp SessionJob) ([]byte, error) {
 	var session Session
+	log.Trace().Msgf("session job: %v", sp)
 
 	// Logic copied from ingest-load-tester session_event_task_factory
 	maxDurationDeviation := sp.DurationRange
 	maxStartDeviation := sp.StartedRange
 	now := time.Now().UTC()
 	baseStart := now.Add(-maxStartDeviation - maxDurationDeviation)
-	startDeviation := time.Duration(rand.Int63n(int64(maxDurationDeviation)))
+	//TODO find out what's wrong (why negative)
+	//startDeviation := time.Duration(rand.Int63n(int64(maxDurationDeviation)))
+	startDeviation := time.Duration(rand.Int63n(10_000_000))
 	staredTime := baseStart.Add(startDeviation)
-	duration := float64(rand.Int63n(int64(maxStartDeviation))) / float64(time.Second)
+	//TODO find out what's wrong (why negative)
+	//duration := float64(rand.Int63n(int64(maxStartDeviation))) / float64(time.Second)
+	duration := 5.20
 	started := staredTime.Format(timeFormat)
 	timestamp := now.Format(timeFormat)
 	release := fmt.Sprintf("r-1.0.%d", rand.Int63n(sp.NumReleases))
@@ -240,16 +249,16 @@ func (raw sessionJobRaw) into(result *SessionJob) error {
 
 /// Struct used for serialisation
 type sessionJobRaw struct {
-	StartedRange    string `json:"started_range" yaml:"started_range"`
-	DurationRange   string `json:"duration_range" yaml:"duration_range"`
-	NumReleases     int64  `json:"num_releases" yaml:"num_releases"`
-	NumEnvironments int64  `json:"num_environments" yaml:"num_environments"`
-	NumUsers        int64  `json:"num_users" yaml:"num_users"`
-	OkWeight        int64  `json:"ok_weight" yaml:"ok_weight"`
-	ExitedWeight    int64  `json:"exited_weight" yaml:"exited_weight"`
-	ErroredWeight   int64  `json:"errored_weight" yaml:"errored_weight"`
-	CrashedWeight   int64  `json:"crashed_weight" yaml:"crashed_weight"`
-	AbnormalWeight  int64  `json:"abnormal_weight" yaml:"abnormal_weight"`
+	StartedRange    string `json:"startedRange" yaml:"startedRange"`
+	DurationRange   string `json:"durationRange" yaml:"durationRange"`
+	NumReleases     int64  `json:"numReleases" yaml:"numReleases"`
+	NumEnvironments int64  `json:"numEnvironments" yaml:"numEnvironments"`
+	NumUsers        int64  `json:"numUsers" yaml:"numUsers"`
+	OkWeight        int64  `json:"okWeight" yaml:"okWeight"`
+	ExitedWeight    int64  `json:"exitedWeight" yaml:"exitedWeight"`
+	ErroredWeight   int64  `json:"erroredWeight" yaml:"erroredWeight"`
+	CrashedWeight   int64  `json:"crashedWeight" yaml:"crashedWeight"`
+	AbnormalWeight  int64  `json:"abnormalWeight" yaml:"abnormalWeight"`
 }
 
 func init() {

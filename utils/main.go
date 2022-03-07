@@ -14,9 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func GetAuthHeader() string {
+func GetAuthHeader(projectKey string) string {
 	//TODO need project key from settings (either CLI or config file)
-	projectKey := "123"
 	return fmt.Sprintf("Sentry sentry_key=%s,sentry_version=7", projectKey)
 }
 

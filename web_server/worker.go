@@ -171,7 +171,6 @@ func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestPar
 	var targeter vegeta.Targeter
 	var params tests.TestParams
 	var statsdClient = getStatsd(statsdAddr)
-	var noTags = []string{}
 	for {
 	attack:
 		select {
@@ -183,9 +182,9 @@ func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestPar
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
-					fmt.Printf("%s", res.Latency)
 					if statsdClient != nil {
-						_ = statsdClient.Timing("req-latency", res.Latency, noTags, 1)
+						var httpStatus = fmt.Sprintf("status:%d", res.Code)
+						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1)
 					}
 					select {
 					case params = <-paramsChan:
@@ -209,18 +208,20 @@ func getStatsd(statsdAddr string) *statsd.Client {
 		log.Warn().Msgf("No statsd configured, will not emit stasd metrics")
 		return nil
 	}
-	var client, err = statsd.New(statsdAddr)
-	if err != nil {
-		log.Error().Msgf("Could not connect to stastd backend\n%v", err)
-		return nil
-	}
+	var client *statsd.Client
 	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
 	ip, err := utils.GetExternalIPv4()
 	if err != nil {
 		log.Error().Msgf("Could not get worker IP, messages will not be tagged\n%s", err)
+		client, err = statsd.New(statsdAddr)
 	} else {
-		var serverTag = fmt.Sprintf("worker_ip=%s", ip)
-		statsd.WithTags([]string{serverTag})
+		var serverTag = fmt.Sprintf("ip:%s", ip)
+		tagsOption := statsd.WithTags([]string{serverTag})
+		client, err = statsd.New(statsdAddr, tagsOption)
+	}
+	if err != nil {
+		log.Error().Msgf("Could not connect to stastd backend\n%v", err)
+		return nil
 	}
 	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
 	return client
