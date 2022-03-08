@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -102,7 +103,7 @@ func RandomChoice(choices []string, relativeWeights []int64) (string, error) {
 		}
 	}
 	// we shouldn't get here
-	return "", errors.New("Internal error RandomChoice")
+	return "", errors.New("internal error RandomChoice")
 
 }
 
@@ -170,4 +171,36 @@ func ExponentialBackoff(initial time.Duration, maximum time.Duration, factor flo
 		}
 		return retVal
 	}
+}
+
+// PerSecond converts a number of elements per random duration in elements per second
+func PerSecond(elements int64, interval time.Duration) (float64, error) {
+	if interval == 0 {
+		return 0, errors.New("invalid 0 duration")
+	}
+	return float64(elements) * float64(time.Second) / float64(interval), nil
+}
+
+func GetStatsd(statsdAddr string) *statsd.Client {
+	if len(statsdAddr) == 0 {
+		log.Warn().Msgf("No statsd configured, will not emit stasd metrics")
+		return nil
+	}
+	var client *statsd.Client
+	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
+	ip, err := GetExternalIPv4()
+	if err != nil {
+		log.Error().Msgf("Could not get worker IP, messages will not be tagged\n%s", err)
+		client, err = statsd.New(statsdAddr)
+	} else {
+		var serverTag = fmt.Sprintf("ip:%s", ip)
+		tagsOption := statsd.WithTags([]string{serverTag})
+		client, err = statsd.New(statsdAddr, tagsOption)
+	}
+	if err != nil {
+		log.Error().Msgf("Could not connect to stastd backend\n%v", err)
+		return nil
+	}
+	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
+	return client
 }

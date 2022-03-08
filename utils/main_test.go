@@ -58,3 +58,34 @@ func TestRandomChoiceDoseNotPanic(t *testing.T) {
 		}
 	}
 }
+
+func TestPerSecond(t *testing.T) {
+	type test struct {
+		name     string
+		elements int64
+		interval time.Duration
+		want     float64
+	}
+
+	const acceptableError = 0.01
+	const lowerBound = 1 - acceptableError
+	const upperBound = 1 + acceptableError
+
+	var tests []test = []test{
+		{"one/sec", 1, time.Second, 1.0},
+		{"one/3sec", 1, time.Second * 3, 1.0 / 3},
+		{"7/h", 7, time.Hour, 7.0 / 3600},
+		{"3/ms", 3, time.Millisecond, 3.0 / 0.001},
+	}
+
+	for _, test := range tests {
+		var got, err = PerSecond(test.elements, test.interval)
+		if err != nil {
+			t.Errorf("Test: %s faile with %v", test.name, err)
+		}
+
+		if got < test.want*lowerBound || got > test.want*upperBound {
+			t.Errorf("Expecting %f got %f", test.want, got)
+		}
+	}
+}

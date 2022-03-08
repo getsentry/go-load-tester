@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -171,7 +170,7 @@ func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestParams) {
 	var targeter vegeta.Targeter
 	var params tests.TestParams
-	var statsdClient = getStatsd(statsdAddr)
+	var statsdClient = utils.GetStatsd(statsdAddr)
 	for {
 	attack:
 		select {
@@ -201,28 +200,4 @@ func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestPar
 			}
 		}
 	}
-}
-
-func getStatsd(statsdAddr string) *statsd.Client {
-	if len(statsdAddr) == 0 {
-		log.Warn().Msgf("No statsd configured, will not emit stasd metrics")
-		return nil
-	}
-	var client *statsd.Client
-	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
-	ip, err := utils.GetExternalIPv4()
-	if err != nil {
-		log.Error().Msgf("Could not get worker IP, messages will not be tagged\n%s", err)
-		client, err = statsd.New(statsdAddr)
-	} else {
-		var serverTag = fmt.Sprintf("ip:%s", ip)
-		tagsOption := statsd.WithTags([]string{serverTag})
-		client, err = statsd.New(statsdAddr, tagsOption)
-	}
-	if err != nil {
-		log.Error().Msgf("Could not connect to stastd backend\n%v", err)
-		return nil
-	}
-	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
-	return client
 }

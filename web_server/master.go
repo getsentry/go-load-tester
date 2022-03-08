@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/getsentry/go-load-tester/utils"
 	"net/http"
 	"sync"
 	"time"
@@ -75,13 +77,14 @@ func removeWorker(url string) {
 	}
 }
 
-func RunMasterWebServer(port string) {
+func RunMasterWebServer(port string, statsdAddr string) {
 	gin.SetMode(gin.ReleaseMode)
 	var engine = gin.Default()
+	var statsd = utils.GetStatsd(statsdAddr)
 
 	engine.GET("/stop/", masterStopHandler)
 	engine.POST("/stop/", masterStopHandler)
-	engine.POST("/command/", masterCommandHandler)
+	engine.POST("/command/", handlerWithStatsd(statsd, masterCommandHandler))
 	engine.POST("/register/", masterRegisterHandler)
 	engine.POST("/unregister/", masterUnregisterHandler)
 	if len(port) > 0 {
@@ -89,6 +92,12 @@ func RunMasterWebServer(port string) {
 	}
 	_ = engine.SetTrustedProxies([]string{})
 	_ = engine.Run(port)
+}
+
+func handlerWithStatsd(statsdClient *statsd.Client, handler func(*statsd.Client, *gin.Context)) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		handler(statsdClient, ctx)
+	}
 }
 
 func ForwardAttack(params tests.TestParams) {
@@ -176,13 +185,21 @@ func masterStopHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, okJsonResponse())
 }
 
-func masterCommandHandler(ctx *gin.Context) {
+func masterCommandHandler(statsdClient *statsd.Client, ctx *gin.Context) {
 	var params tests.TestParams
 	log.Info().Msg("command handler called")
 	if err := ctx.ShouldBindJSON(&params); err != nil {
 		log.Error().Msg("Could not parse command")
 		ctx.JSON(http.StatusBadRequest, "Could not parse command")
 		return
+	}
+	freq, err := utils.PerSecond(int64(params.NumMessages), params.Per)
+	if err != nil {
+		log.Error().Msgf("Failed to calculate request frequency for %d per %v", params.NumMessages, params.Per)
+		return
+	}
+	if statsdClient != nil {
+		statsdClient.Gauge("desired-req-sec", freq, []string{}, 1.0)
 	}
 	go ForwardAttack(params) // no need to wait for sending it to clients
 	ctx.JSON(http.StatusOK, "Attack forwarded to workers")
