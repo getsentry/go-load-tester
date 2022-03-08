@@ -99,19 +99,24 @@ func getSessionBody(sp SessionJob) ([]byte, error) {
 	maxStartDeviation := sp.StartedRange
 	now := time.Now().UTC()
 	baseStart := now.Add(-maxStartDeviation - maxDurationDeviation)
-	//TODO find out what's wrong (why negative)
-	//startDeviation := time.Duration(rand.Int63n(int64(maxDurationDeviation)))
-	startDeviation := time.Duration(rand.Int63n(10_000_000))
+	if maxDurationDeviation < time.Millisecond {
+		maxDurationDeviation = time.Millisecond
+	}
+	startDeviation := time.Duration(rand.Int63n(int64(maxDurationDeviation)))
 	staredTime := baseStart.Add(startDeviation)
-	//TODO find out what's wrong (why negative)
-	//duration := float64(rand.Int63n(int64(maxStartDeviation))) / float64(time.Second)
-	duration := 5.20
+	if maxStartDeviation < time.Second {
+		maxStartDeviation = time.Millisecond
+	}
+	duration := float64(rand.Int63n(int64(maxStartDeviation))) / float64(time.Second)
 	started := staredTime.Format(timeFormat)
 	timestamp := now.Format(timeFormat)
 	release := fmt.Sprintf("r-1.0.%d", rand.Int63n(sp.NumReleases))
 	environment := fmt.Sprintf("environment-%d", rand.Int63n(sp.NumEnvironments))
-	status := utils.RandomChoice([]string{"ok", "exited", "errored", "crashed", "abnormal"},
+	status, err := utils.RandomChoice([]string{"ok", "exited", "errored", "crashed", "abnormal"},
 		[]int64{sp.OkWeight, sp.ExitedWeight, sp.ErroredWeight, sp.CrashedWeight, sp.AbnormalWeight})
+	if err != nil {
+		status = "ok"
+	}
 	init := true
 	seq := int64(0)
 

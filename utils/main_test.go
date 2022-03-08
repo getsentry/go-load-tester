@@ -32,3 +32,29 @@ func TestExponentialBackoff(t *testing.T) {
 		}
 	}
 }
+
+func TestRandomChoiceDoseNotPanic(t *testing.T) {
+
+	type test struct {
+		name        string
+		weights     []int64
+		choices     *[]string
+		expectError bool
+	}
+	var choices []string = []string{"a", "b", "c"}
+	var tests []test = []test{
+		{name: "more choices", weights: []int64{}, choices: &choices, expectError: false},
+		{name: "less choices", weights: []int64{1, 2, 3, 4}, choices: &choices, expectError: false},
+		{name: "0 weights", weights: []int64{0, 0, 0}, choices: &choices, expectError: true},
+		{name: "less 0 weights", weights: []int64{0}, choices: &choices, expectError: false},
+		{name: "more 0 weights", weights: []int64{0, 0, 0, 0}, choices: &choices, expectError: true},
+		{name: "no choices", weights: []int64{1, 2, 3}, choices: &[]string{}, expectError: true},
+	}
+
+	for _, test := range tests {
+		_, error := RandomChoice(*test.choices, test.weights)
+		if (error != nil) != test.expectError {
+			t.Errorf("test: %s failed", test.name)
+		}
+	}
+}

@@ -59,11 +59,12 @@ func SessionEnvelopeFromBody(eventID string, sentAt time.Time, body json.RawMess
 //
 // if relativeWeights is empty or smaller than choices weights of 1 will be considered for the
 // missing weights, if more weights are passed they will be ignored
-func RandomChoice(choices []string, relativeWeights []int64) string {
+func RandomChoice(choices []string, relativeWeights []int64) (string, error) {
 	lc := len(choices)
+
 	lr := len(relativeWeights)
 	if lc == 0 {
-		return ""
+		return "", errors.New("no valid choices")
 	}
 	if lr > lc {
 		relativeWeights = relativeWeights[:lc]
@@ -76,21 +77,32 @@ func RandomChoice(choices []string, relativeWeights []int64) string {
 		relativeWeights = append(relativeWeights, x...)
 	}
 
+	//cleanup relative weights
+	for idx := 0; idx < len(relativeWeights); idx++ {
+		if relativeWeights[idx] < 0 {
+			relativeWeights[idx] = 0
+		}
+	}
+
 	var maxWeight int64 = 0
 	for _, weight := range relativeWeights {
 		maxWeight += weight
 	}
-	choice := rand.Int63n(maxWeight)
+	var choice int64 = 0
+	if maxWeight > 0 {
+		choice = rand.Int63n(maxWeight)
+	} else {
+		return "", errors.New("no valid weights")
+	}
 	var curWeight int64 = 0
 	for idx, weight := range relativeWeights {
 		curWeight += weight
 		if curWeight > choice {
-			return choices[idx]
+			return choices[idx], nil
 		}
 	}
 	// we shouldn't get here
-	log.Error().Msg("Internal error RandomChoice")
-	return choices[lc-1]
+	return "", errors.New("Internal error RandomChoice")
 
 }
 
