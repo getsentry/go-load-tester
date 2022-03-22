@@ -1,0 +1,10 @@
+**
+!*.go
+!go.mod
+!go.sum
+# Packages
+!cmd
+!config
+!tests
+!utils
+!web_server
