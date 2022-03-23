@@ -153,9 +153,9 @@ func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 		log.Info().Msg("Zero attack duration, stopping")
 		return nil
 	}
-	targeterBuilder := tests.GetTargeter(params.Name)
+	targeterBuilder := tests.GetTargeter(params.TestType)
 	if targeterBuilder == nil {
-		log.Error().Msgf("Invalid attack type %s", params.Name)
+		log.Error().Msgf("Invalid attack type %s", params.TestType)
 		return nil
 	}
 	return targeterBuilder(targetUrl, params.Params)

@@ -22,6 +22,7 @@ import "sync"
 type TestParams struct {
 	Name           string
 	Description    string
+	TestType       string
 	AttackDuration time.Duration // total time of Attack
 	NumMessages    int           // number of messages to be sent in Per
 	Per            time.Duration // the unit of duration in which to send NumMessages
@@ -44,10 +45,10 @@ func RegisterTargeter(name string, builder ConfigurableTargeterBuilder) {
 
 // GetTargeter returns the TargeterBuilder for a particular type of message. The name represents the
 // type of load message passed
-func GetTargeter(name string) ConfigurableTargeterBuilder {
+func GetTargeter(testType string) ConfigurableTargeterBuilder {
 	converters.lock.Lock()
 	defer converters.lock.Unlock()
-	return converters.targeterBuilders[name]
+	return converters.targeterBuilders[testType]
 }
 
 var converters = struct {
@@ -60,9 +61,10 @@ var converters = struct {
 type testParamsRaw struct {
 	Name           string
 	Description    string
+	TestType       string `json:"testType" yaml:"testType"`
 	Params         json.RawMessage
-	AttackDuration string
-	NumMessages    int
+	AttackDuration string `json:"attackDuration" yaml:"attackDuration"`
+	NumMessages    int    `json:"numMessages" yaml:"numMessages"`
 	Per            string
 }
 
@@ -70,6 +72,7 @@ func (t TestParams) intoRaw() testParamsRaw {
 	return testParamsRaw{
 		AttackDuration: t.AttackDuration.String(),
 		NumMessages:    t.NumMessages,
+		TestType:       t.TestType,
 		Per:            t.Per.String(),
 		Name:           t.Name,
 		Description:    t.Description,
@@ -103,6 +106,7 @@ func (raw testParamsRaw) into(result *TestParams) error {
 	}
 	result.AttackDuration = attackDuration
 	result.Per = per
+	result.TestType = raw.TestType
 	result.NumMessages = raw.NumMessages
 	result.Name = raw.Name
 	result.Description = raw.Description
