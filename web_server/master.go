@@ -177,6 +177,7 @@ func masterStopHandler(ctx *gin.Context) {
 			var resp, err = client.Get(pingUrl)
 			if err != nil {
 				log.Error().Msgf("Could not send request to client %s", workerUrl)
+				return
 			}
 			defer resp.Body.Close()
 
