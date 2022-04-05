@@ -49,7 +49,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&rootConfig.cfgFile, "config", "", "config file (default is $HOME/.go-load-tester.yaml)")
-	rootCmd.PersistentFlags().StringVar(&rootConfig.logLevel, "log", "error", "Log level: trace, info, warn, (error), fatal, panic")
+	rootCmd.PersistentFlags().StringVar(&rootConfig.logLevel, "log", "info", "Log level: trace, info, warn, (error), fatal, panic")
 	rootCmd.PersistentFlags().BoolVar(&rootConfig.useColor, "color", false, "Use color (only for console output).")
 }
 
@@ -65,6 +65,8 @@ func initConfig() {
 	switch strings.ToLower(rootConfig.logLevel) {
 	case "t", "trc", "trace":
 		logLevel = zerolog.TraceLevel
+	case "d", "dbg", "debug":
+		logLevel = zerolog.DebugLevel
 	case "i", "inf", "info":
 		logLevel = zerolog.InfoLevel
 	case "w", "warn", "warning":
@@ -75,7 +77,7 @@ func initConfig() {
 		logLevel = zerolog.FatalLevel
 	case "p", "panic":
 		logLevel = zerolog.PanicLevel
-	case "d", "dis", "disable", "disabled":
+	case "dis", "disable", "disabled":
 		logLevel = zerolog.Disabled
 	default:
 		logLevel = zerolog.ErrorLevel

@@ -80,11 +80,11 @@ func removeWorker(url string) {
 func RunMasterWebServer(port string, statsdAddr string) {
 	gin.SetMode(gin.ReleaseMode)
 	var engine = gin.Default()
-	var statsd = utils.GetStatsd(statsdAddr)
+	var statsdClient = utils.GetStatsd(statsdAddr)
 
 	engine.GET("/stop/", masterStopHandler)
 	engine.POST("/stop/", masterStopHandler)
-	engine.POST("/command/", handlerWithStatsd(statsd, masterCommandHandler))
+	engine.POST("/command/", handlerWithStatsd(statsdClient, masterCommandHandler))
 	engine.POST("/register/", masterRegisterHandler)
 	engine.POST("/unregister/", masterUnregisterHandler)
 	if len(port) > 0 {
@@ -111,7 +111,7 @@ func ForwardAttack(params tests.TestParams) {
 	params.Per = time.Duration(len(workerUrls)) * params.Per
 	newParams, err := json.Marshal(params)
 	if err != nil {
-		log.Error().Msgf("Error generating request%s", err)
+		log.Error().Err(err).Msg("Error generating request")
 		return
 	}
 
@@ -123,15 +123,18 @@ func ForwardAttack(params tests.TestParams) {
 			var commandUrl = fmt.Sprintf("%s/command/", workerUrl)
 			req, err := http.NewRequest("POST", commandUrl, body)
 			if err != nil {
-				log.Err(err)
+				log.Error().Err(err).Msgf("could not create request for url: `%s`", workerUrl)
 				return
 			}
 			resp, err := client.Do(req)
 			if err != nil {
-				log.Error().Msgf(" error sending command to client '%s': \n%s", workerUrl, err)
+				log.Error().Err(err).Msgf(" error sending command to client '%s'", workerUrl)
 			}
 			if resp != nil {
-				_ = resp.Body.Close()
+				err = resp.Body.Close()
+				if err != nil {
+					log.Error().Err(err).Msg("error closing the body of the attack")
+				}
 			}
 		}(workerUrl)
 	}
@@ -154,10 +157,14 @@ func checkWorkersStatus() {
 			var resp, err = client.Get(pingUrl)
 			defer func() {
 				if resp != nil {
-					_ = resp.Body.Close()
+					err = resp.Body.Close()
+					if err != nil {
+						log.Error().Err(err).Msg("could not close response body")
+					}
 				}
 			}()
 			if err != nil || (resp != nil && resp.StatusCode > 300) {
+				log.Error().Err(err).Msgf("Worker %s did not respond to ping", workerUrl)
 				removeWorker(workerUrl)
 			}
 
@@ -173,13 +180,18 @@ func masterStopHandler(ctx *gin.Context) {
 	var client = getDefaultHttpClient()
 	for _, worker := range workerUrls {
 		go func(workerUrl string) {
-			var pingUrl = fmt.Sprintf("%s/stop/", workerUrl)
-			var resp, err = client.Get(pingUrl)
+			var stopUrl = fmt.Sprintf("%s/stop/", workerUrl)
+			var resp, err = client.Get(stopUrl)
 			if err != nil {
-				log.Error().Msgf("Could not send request to client %s", workerUrl)
+				log.Error().Err(err).Msgf("Could not send request to client %s", workerUrl)
 				return
 			}
-			defer resp.Body.Close()
+			defer func() {
+				err = resp.Body.Close()
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to close body form close response")
+				}
+			}()
 
 		}(worker)
 	}
@@ -190,7 +202,7 @@ func masterCommandHandler(statsdClient *statsd.Client, ctx *gin.Context) {
 	var params tests.TestParams
 	log.Info().Msg("command handler called")
 	if err := ctx.ShouldBindJSON(&params); err != nil {
-		log.Error().Msg("Could not parse command")
+		log.Error().Err(err).Msgf("Could not parse command:\n%v", params)
 		ctx.JSON(http.StatusBadRequest, "Could not parse command")
 		return
 	}
@@ -200,7 +212,7 @@ func masterCommandHandler(statsdClient *statsd.Client, ctx *gin.Context) {
 		return
 	}
 	if statsdClient != nil {
-		statsdClient.Gauge("desired-req-sec", freq, []string{}, 1.0)
+		_ = statsdClient.Gauge("desired-req-sec", freq, []string{}, 1.0)
 	}
 	go ForwardAttack(params) // no need to wait for sending it to clients
 	ctx.JSON(http.StatusOK, "Attack forwarded to workers")
@@ -213,7 +225,7 @@ func masterRegisterHandler(ctx *gin.Context) {
 		addWorker(workerReq.WorkerUrl)
 		ctx.JSON(http.StatusOK, okJsonResponse())
 	} else {
-		log.Error().Msg("Error while trying to register worker")
+		log.Error().Err(err).Msg("Error while trying to register worker")
 		ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not parse registration request"))
 	}
 }
@@ -224,7 +236,7 @@ func masterUnregisterHandler(ctx *gin.Context) {
 		removeWorker(workerReq.WorkerUrl)
 		ctx.JSON(http.StatusOK, okJsonResponse())
 	} else {
-		log.Error().Msg("Error while trying to unregister worker")
+		log.Error().Err(err).Msg("Error while trying to unregister worker")
 		ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not register request"))
 	}
 }
