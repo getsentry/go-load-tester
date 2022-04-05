@@ -20,7 +20,7 @@ In master mode the load tester accepts registrations from workers.
 Every command it receives it distributes to the workers.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info().Msgf("Running load tester in master mode at port: %s", runConfig.port)
-		web_server.RunMasterWebServer(runConfig.port, runConfig.statsdAddr)
+		web_server.RunMasterWebServer(runConfig.port, runConfig.statsdAddr, runConfig.targetUrl)
 	},
 }
 
