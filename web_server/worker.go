@@ -165,7 +165,8 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 	log.Trace().Msgf("Creating targeter:%v", params)
 	if params.AttackDuration == 0 {
-		log.Info().Msg("Zero attack duration, stopping")
+		// an attack with 0 duration is a stop request
+		log.Info().Msg("Stop command received")
 		return nil
 	}
 	targeterBuilder := tests.GetTargeter(params.TestType)
