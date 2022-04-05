@@ -190,7 +190,7 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
 	ip, err := GetExternalIPv4()
 	if err != nil {
-		log.Error().Msgf("Could not get worker IP, messages will not be tagged\n%s", err)
+		log.Error().Err(err).Msg("Could not get worker IP, messages will not be tagged\n")
 		client, err = statsd.New(statsdAddr)
 	} else {
 		var serverTag = fmt.Sprintf("ip:%s", ip)
@@ -198,7 +198,7 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 		client, err = statsd.New(statsdAddr, tagsOption)
 	}
 	if err != nil {
-		log.Error().Msgf("Could not connect to stastd backend\n%v", err)
+		log.Error().Err(err).Msgf("Could not connect to stastd backend")
 		return nil
 	}
 	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
