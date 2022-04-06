@@ -85,7 +85,7 @@ func registerWithMaster(port string, masterUrl string) (*configParams, error) {
 			status = resp.StatusCode
 			responseBody, err = ioutil.ReadAll(resp.Body)
 			if err != nil {
-				log.Error().Err(err).Msg("could not read resposne body")
+				log.Error().Err(err).Msg("could not read response body")
 			}
 			err = resp.Body.Close()
 			if err != nil {
