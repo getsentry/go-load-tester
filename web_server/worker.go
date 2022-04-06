@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -18,12 +19,6 @@ import (
 	"github.com/getsentry/go-load-tester/tests"
 	"github.com/getsentry/go-load-tester/utils"
 )
-
-// registerWorkerRequest is the body of the register http request sent by a worker
-// to register to a master.
-type registerWorkerRequest struct {
-	WorkerUrl string `json:"workerUrl"`
-}
 
 func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdAddr string) {
 
@@ -37,8 +32,13 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdA
 	engine.POST("/command/", withParamChannel(paramChannel, workerCommandHandler))
 	engine.GET("/ping", pingHandler)
 	engine.POST("/ping", pingHandler)
-	go worker(targetUrl, statsdAddr, paramChannel)
-	go registerWithMaster(port, masterUrl)
+	//if working with master first wait to register
+	config, err := registerWithMaster(port, masterUrl)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to register with master, worker stopping")
+		return
+	}
+	go worker(targetUrl, statsdAddr, *config, paramChannel)
 	if len(port) > 0 {
 		port = fmt.Sprintf(":%s", port)
 	}
@@ -49,10 +49,10 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdA
 type handlerWithCommand func(chan<- tests.TestParams, *gin.Context)
 
 // registerWithMaster tries to register the current worker with a master
-func registerWithMaster(port string, masterUrl string) {
+func registerWithMaster(port string, masterUrl string) (*configParams, error) {
 	if len(masterUrl) == 0 {
 		log.Info().Msg("No master url specified, running in independent mode")
-		return // do not try to register to master
+		return nil, nil // do not try to register to master
 	}
 	registrationUrl := fmt.Sprintf("%s/register/", masterUrl)
 	log.Info().Msgf("Trying to register with master at: %s", registrationUrl)
@@ -61,18 +61,18 @@ func registerWithMaster(port string, masterUrl string) {
 	ipAddr, err := utils.GetExternalIPv4()
 	if err != nil {
 		log.Err(err)
-		return
+		return nil, err
 	}
 	workerUrl := fmt.Sprintf("http://%s:%s", ipAddr, port)
 	body, err := createRegistrationBody(workerUrl)
 	if err != nil {
 		log.Error().Msgf("could not create registration body:\n%s", err)
-		return
+		return nil, err
 	}
 	req, err := http.NewRequest("POST", registrationUrl, body)
 	if err != nil {
 		log.Error().Msgf("Could not create registration request:\n%s", err)
-		return
+		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	backoff := utils.ExponentialBackoff(time.Second*5, time.Second*30, 1.4)
@@ -80,20 +80,35 @@ func registerWithMaster(port string, masterUrl string) {
 		// try registering until success or unrecoverable error
 		resp, err := c.Do(req)
 		var status int
+		var responseBody []byte
 		if resp != nil {
 			status = resp.StatusCode
-			_ = resp.Body.Close()
+			responseBody, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Error().Err(err).Msg("could not read response body")
+			}
+			err = resp.Body.Close()
+			if err != nil {
+				log.Error().Err(err).Msg("could not close response body")
+			}
 		}
 		if err == nil {
 			if status < 300 {
-				// registration successful
+				// registration successful, unmarshal response
 				log.Info().Msgf("Registration successful")
-				break
+				var resp registerWorkerResponse
+				err = json.Unmarshal(responseBody, &resp)
+				if err != nil {
+					log.Error().Err(err).Msg("could not deserialize master response")
+					return nil, err
+				}
+				return &resp.Params, nil
 			}
 			if status >= 300 && status < 500 {
+				err = fmt.Errorf("master returned: %d", status)
 				// we can't handle redirects or client errors, no point in trying again
-				log.Error().Msgf("error returned from master: %d", status)
-				break
+				log.Error().Err(err).Msgf("Client error returned from master")
+				return nil, err
 			}
 		}
 		nextTry := backoff()
@@ -150,7 +165,8 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 	log.Trace().Msgf("Creating targeter:%v", params)
 	if params.AttackDuration == 0 {
-		log.Info().Msg("Zero attack duration, stopping")
+		// an attack with 0 duration is a stop request
+		log.Info().Msg("Stop command received")
 		return nil
 	}
 	targeterBuilder := tests.GetTargeter(params.TestType)
@@ -167,7 +183,17 @@ func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 // The worker uses a command channel to accept new commands
 // Once a command is received the current attack (if there is a current attack)
 // is stopped and a new attack started
-func worker(targetUrl string, statsdAddr string, paramsChan <-chan tests.TestParams) {
+func worker(targetUrl string, statsdAddr string, configParams configParams, paramsChan <-chan tests.TestParams) {
+
+	if len(configParams.StatsdServerUrl) > 0 {
+		//override configuration with master statsdUrl
+		statsdAddr = configParams.StatsdServerUrl
+	}
+	if len(configParams.TargetUrl) > 0 {
+		//override configuration with master targetUrl
+		targetUrl = configParams.TargetUrl
+	}
+	log.Info().Msgf("Worker started targetUrl=%s, statsdAddr=%s", targetUrl, statsdAddr)
 	var targeter vegeta.Targeter
 	var params tests.TestParams
 	var statsdClient = utils.GetStatsd(statsdAddr)

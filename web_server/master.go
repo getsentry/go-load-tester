@@ -36,14 +36,6 @@ func getWorkers() []string {
 	return retVal
 }
 
-func okJsonResponse() interface{} {
-	return gin.H{"status": "ok"}
-}
-
-func errorJsonResponse(errorMessage string) interface{} {
-	return gin.H{"error": errorMessage}
-}
-
 // getDefaultHttpClient returns a correctly configured HTTP Client for passing
 // requests to workers (a common point to configure options for worker requests)
 func getDefaultHttpClient() http.Client {
@@ -77,7 +69,7 @@ func removeWorker(url string) {
 	}
 }
 
-func RunMasterWebServer(port string, statsdAddr string) {
+func RunMasterWebServer(port string, statsdAddr string, targetUrl string) {
 	gin.SetMode(gin.ReleaseMode)
 	var engine = gin.Default()
 	var statsdClient = utils.GetStatsd(statsdAddr)
@@ -85,7 +77,7 @@ func RunMasterWebServer(port string, statsdAddr string) {
 	engine.GET("/stop/", masterStopHandler)
 	engine.POST("/stop/", masterStopHandler)
 	engine.POST("/command/", handlerWithStatsd(statsdClient, masterCommandHandler))
-	engine.POST("/register/", masterRegisterHandler)
+	engine.POST("/register/", masterRegisterHandlerFactory(statsdAddr, targetUrl))
 	engine.POST("/unregister/", masterUnregisterHandler)
 	if len(port) > 0 {
 		port = fmt.Sprintf(":%s", port)
@@ -218,15 +210,16 @@ func masterCommandHandler(statsdClient *statsd.Client, ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, "Attack forwarded to workers")
 
 }
-
-func masterRegisterHandler(ctx *gin.Context) {
-	var workerReq registerWorkerRequest
-	if err := ctx.ShouldBindJSON(&workerReq); err == nil {
-		addWorker(workerReq.WorkerUrl)
-		ctx.JSON(http.StatusOK, okJsonResponse())
-	} else {
-		log.Error().Err(err).Msg("Error while trying to register worker")
-		ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not parse registration request"))
+func masterRegisterHandlerFactory(statsdClient string, targetUrl string) func(*gin.Context) {
+	return func(ctx *gin.Context) {
+		var workerReq registerWorkerRequest
+		if err := ctx.ShouldBindJSON(&workerReq); err == nil {
+			addWorker(workerReq.WorkerUrl)
+			ctx.JSON(http.StatusOK, sendServerConfig(targetUrl, statsdClient))
+		} else {
+			log.Error().Err(err).Msg("Error while trying to register worker")
+			ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not parse registration request"))
+		}
 	}
 }
 

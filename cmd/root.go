@@ -58,7 +58,7 @@ func initConfig() {
 	//setup logging
 	var consoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: !rootConfig.useColor,
 		TimeFormat: "15:04:05"}
-	log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
+	log.Logger = zerolog.New(consoleWriter).With().Timestamp().Caller().Logger()
 
 	var logLevel zerolog.Level
 
