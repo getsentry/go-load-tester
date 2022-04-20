@@ -222,10 +222,9 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 				}
 				// finish current attack, reset timing
 				targeter = nil
+			} else {
+				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
 			}
-else {
-    time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
-}
 		}
 	}
 }
