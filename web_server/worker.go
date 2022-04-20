@@ -178,7 +178,7 @@ func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 
 }
 
-// worker the worker that handles Vegeta attacks
+// worker that handles Vegeta attacks
 //
 // The worker uses a command channel to accept new commands
 // Once a command is received the current attack (if there is a current attack)
@@ -220,8 +220,9 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 						continue
 					}
 				}
-				// finish current attack reset timing
+				// finish current attack, reset timing
 				targeter = nil
+			} else {
 				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
 			}
 		}

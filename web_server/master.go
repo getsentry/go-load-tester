@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/getsentry/go-load-tester/utils"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/getsentry/go-load-tester/tests"
+	"github.com/getsentry/go-load-tester/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-
-	"github.com/getsentry/go-load-tester/tests"
 )
 
 /*
@@ -52,7 +51,7 @@ func addWorker(url string) {
 		}
 	}
 	masterState.workers = append(masterState.workers, url)
-	log.Info().Msgf("Register worker at: %s", url)
+	log.Info().Msgf("Registered worker at: %s", url)
 }
 
 func removeWorker(url string) {
@@ -64,9 +63,12 @@ func removeWorker(url string) {
 		if workerUrl == url {
 			masterState.workers[idx] = masterState.workers[l-1]
 			masterState.workers = masterState.workers[:l-1]
+			log.Info().Msgf("Removed worker: %s", url)
+			log.Debug().Msgf("Remaining workers: %v", masterState.workers)
 			return
 		}
 	}
+	log.Error().Msgf("Cannot remove worker: %v", url)
 }
 
 func RunMasterWebServer(port string, statsdAddr string, targetUrl string) {
