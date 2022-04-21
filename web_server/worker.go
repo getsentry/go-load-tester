@@ -211,8 +211,8 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 					metrics.Add(res)
 					if statsdClient != nil {
 						var httpStatus = fmt.Sprintf("status:%d", res.Code)
-						var requestError = fmt.Sprintf("error:%s", res.Error)
-						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus, requestError}, 1.0)
+						// var requestError = fmt.Sprintf("error:%s", res.Error)
+						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1.0)
 					}
 					select {
 					case params = <-paramsChan:
@@ -221,7 +221,7 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 
 						// Flush metrics
 						metrics.Close()
-						log.Debug().Msgf("Metrics: %v", metrics)
+						log.Debug().Msgf("Metrics: %+v", metrics)
 						metrics = vegeta.Metrics{}
 
 						break attack // starts a new attack
@@ -234,7 +234,7 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 
 				// Flush metrics
 				metrics.Close()
-				log.Debug().Msgf("Metrics: %v", metrics)
+				log.Debug().Msgf("Metrics: %+v", metrics)
 				metrics = vegeta.Metrics{}
 			} else {
 				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
