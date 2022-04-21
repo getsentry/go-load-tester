@@ -197,7 +197,7 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 	var targeter vegeta.Targeter
 	var params tests.TestParams
 	var statsdClient = utils.GetStatsd(statsdAddr)
-	var metrics vegeta.Metrics
+	var vegetaStats vegeta.Metrics
 	for {
 	attack:
 		select {
@@ -208,10 +208,9 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(5000))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
-					metrics.Add(res)
+					vegetaStats.Add(res)
 					if statsdClient != nil {
 						var httpStatus = fmt.Sprintf("status:%d", res.Code)
-						// var requestError = fmt.Sprintf("error:%s", res.Error)
 						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1.0)
 					}
 					select {
@@ -219,10 +218,10 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 						targeter = createTargeter(targetUrl, params)
 						attacker.Stop()
 
-						// Flush metrics
-						metrics.Close()
-						log.Debug().Msgf("Metrics: %+v", metrics)
-						metrics = vegeta.Metrics{}
+						// Flush stats
+						vegetaStats.Close()
+						log.Debug().Msgf("Vegeta stats: %+v", vegetaStats)
+						vegetaStats = vegeta.Metrics{}
 
 						break attack // starts a new attack
 					default:
@@ -232,10 +231,10 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 				// finish current attack, reset timing
 				targeter = nil
 
-				// Flush metrics
-				metrics.Close()
-				log.Debug().Msgf("Metrics: %+v", metrics)
-				metrics = vegeta.Metrics{}
+				// Flush stats
+				vegetaStats.Close()
+				log.Debug().Msgf("Vegeta stats: %+v", vegetaStats)
+				vegetaStats = vegeta.Metrics{}
 			} else {
 				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
 			}
