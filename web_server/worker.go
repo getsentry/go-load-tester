@@ -197,6 +197,7 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 	var targeter vegeta.Targeter
 	var params tests.TestParams
 	var statsdClient = utils.GetStatsd(statsdAddr)
+	var metrics vegeta.Metrics
 	for {
 	attack:
 		select {
@@ -205,16 +206,24 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 		default:
 			if targeter != nil {
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
-				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1000))
+				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(5000))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
+					metrics.Add(res)
 					if statsdClient != nil {
 						var httpStatus = fmt.Sprintf("status:%d", res.Code)
-						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1)
+						var requestError = fmt.Sprintf("error:%s", res.Error)
+						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus, requestError}, 1.0)
 					}
 					select {
 					case params = <-paramsChan:
 						targeter = createTargeter(targetUrl, params)
 						attacker.Stop()
+
+						// Flush metrics
+						metrics.Close()
+						log.Debug().Msgf("Metrics: %v", metrics)
+						metrics = vegeta.Metrics{}
+
 						break attack // starts a new attack
 					default:
 						continue
@@ -222,6 +231,11 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 				}
 				// finish current attack, reset timing
 				targeter = nil
+
+				// Flush metrics
+				metrics.Close()
+				log.Debug().Msgf("Metrics: %v", metrics)
+				metrics = vegeta.Metrics{}
 			} else {
 				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
 			}
