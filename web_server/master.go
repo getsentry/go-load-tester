@@ -24,6 +24,10 @@ var masterState struct {
 	workers []string // urls of registered workers
 }
 
+var globalMasterMetrics struct {
+	desiredRate float64
+}
+
 // getWorkers returns a copy of the workers at the moment of calling
 //
 // Use it to safely get a copy and then release the lock on the masterState
@@ -71,10 +75,30 @@ func removeWorker(url string) {
 	log.Error().Msgf("Cannot remove worker: %v", url)
 }
 
+// collectMasterMetricsLoop regularly produces global master metrics
+func collectMasterMetricsLoop(statsdClient *statsd.Client) {
+	if statsdClient == nil {
+		return
+	}
+
+	tags := []string{}
+	sampleRate := 1.0
+	flushPeriod := 1 * time.Second
+
+	for {
+		_ = statsdClient.Gauge("registered-workers", float64(len(masterState.workers)), tags, sampleRate)
+		_ = statsdClient.Gauge("desired-req-sec", globalMasterMetrics.desiredRate, tags, sampleRate)
+
+		time.Sleep(flushPeriod)
+	}
+}
+
 func RunMasterWebServer(port string, statsdAddr string, targetUrl string) {
 	gin.SetMode(gin.ReleaseMode)
 	var engine = gin.Default()
 	var statsdClient = utils.GetStatsd(statsdAddr)
+
+	go collectMasterMetricsLoop(statsdClient)
 
 	engine.GET("/stop/", masterStopHandler)
 	engine.POST("/stop/", masterStopHandler)
@@ -205,9 +229,7 @@ func masterCommandHandler(statsdClient *statsd.Client, ctx *gin.Context) {
 		log.Error().Msgf("Failed to calculate request frequency for %d per %v", params.NumMessages, params.Per)
 		return
 	}
-	if statsdClient != nil {
-		_ = statsdClient.Gauge("desired-req-sec", freq, []string{}, 1.0)
-	}
+	globalMasterMetrics.desiredRate = freq
 	go ForwardAttack(params) // no need to wait for sending it to clients
 	ctx.JSON(http.StatusOK, "Attack forwarded to workers")
 
