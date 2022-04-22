@@ -196,6 +196,7 @@ func masterStopHandler(ctx *gin.Context) {
 	log.Info().Msg("stop handler called")
 	var workerUrls = getWorkers()
 	var client = getDefaultHttpClient()
+	globalMasterMetrics.desiredRate = 0
 	for _, worker := range workerUrls {
 		go func(workerUrl string) {
 			var stopUrl = fmt.Sprintf("%s/stop/", workerUrl)
@@ -232,8 +233,8 @@ func masterCommandHandler(statsdClient *statsd.Client, ctx *gin.Context) {
 	globalMasterMetrics.desiredRate = freq
 	go ForwardAttack(params) // no need to wait for sending it to clients
 	ctx.JSON(http.StatusOK, "Attack forwarded to workers")
-
 }
+
 func masterRegisterHandlerFactory(statsdClient string, targetUrl string) func(*gin.Context) {
 	return func(ctx *gin.Context) {
 		var workerReq registerWorkerRequest
