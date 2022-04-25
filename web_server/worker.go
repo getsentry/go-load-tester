@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -20,12 +21,83 @@ import (
 	"github.com/getsentry/go-load-tester/utils"
 )
 
+var globalWorkerMetrics struct {
+	vegetaStats vegeta.Metrics
+}
+
+// collectWorkerMetricsLoop regularly produces global master metrics
+func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
+	if statsdClient == nil {
+		return
+	}
+
+	tags := []string{}
+	const sampleRate = 1.0
+	const flushPeriod = 1 * time.Second
+	const success_rate_threshold = 0.9
+	const invalid_data_alert_threshold = 5
+
+	invalid_data_counter := 0
+	var lastFlushVegetaStats vegeta.Metrics
+
+	for {
+		var currentVegetaStats vegeta.Metrics
+		invalid_data_marker := 0
+		now := time.Now()
+
+		utils.DeepCopy(globalWorkerMetrics.vegetaStats, &currentVegetaStats)
+		// Compute aggregated metrics
+		currentVegetaStats.Close()
+
+		// Only compute the
+		if !currentVegetaStats.Earliest.IsZero() && currentVegetaStats.Earliest == lastFlushVegetaStats.Earliest {
+			requestsMade := currentVegetaStats.Requests - lastFlushVegetaStats.Requests
+			successfulRequests := currentVegetaStats.Success*float64(currentVegetaStats.Requests) - lastFlushVegetaStats.Success*float64(lastFlushVegetaStats.Requests)
+			successRate := 0.0
+			if requestsMade > 0 {
+				successRate = successfulRequests / float64(requestsMade)
+			}
+			log.Debug().Msgf("[%s] Over the last flush period, requests made: %s, successful requests: %s", now.Format(time.RFC3339), requestsMade, successfulRequests)
+
+			if successRate < success_rate_threshold {
+				invalid_data_counter += 1
+			} else {
+				invalid_data_counter = 0
+			}
+
+			if invalid_data_counter > invalid_data_alert_threshold {
+				invalid_data_marker = 1
+			}
+
+		}
+
+		_ = statsdClient.Gauge("vegeta.data_invalid", float64(invalid_data_marker), tags, sampleRate)
+		_ = statsdClient.Gauge("vegeta.rate", currentVegetaStats.Rate, tags, sampleRate)
+		_ = statsdClient.Gauge("vegeta.throughput", currentVegetaStats.Throughput, tags, sampleRate)
+		_ = statsdClient.Gauge("vegeta.success_pct", currentVegetaStats.Success, tags, sampleRate)
+		_ = statsdClient.Gauge("vegeta.requests", float64(currentVegetaStats.Requests), tags, sampleRate)
+
+		for code, responses := range currentVegetaStats.StatusCodes {
+			finalTags := []string{}
+			copy(finalTags, tags)
+			responseCode := fmt.Sprintf("status:%s", code)
+			finalTags = append(finalTags, responseCode)
+			_ = statsdClient.Gauge("vegeta.status_codes", float64(responses), finalTags, sampleRate)
+		}
+
+		time.Sleep(flushPeriod)
+	}
+}
+
 func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdAddr string) {
 
 	paramChannel := make(chan tests.TestParams)
 	defer close(paramChannel)
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.Default()
+	var statsdClient = utils.GetStatsd(statsdAddr)
+
+	go collectWorkerMetricsLoop(statsdClient)
 
 	engine.GET("/stop/", withParamChannel(paramChannel, workerStopHandler))
 	engine.POST("/stop/", withParamChannel(paramChannel, workerStopHandler))
@@ -197,7 +269,7 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 	var targeter vegeta.Targeter
 	var params tests.TestParams
 	var statsdClient = utils.GetStatsd(statsdAddr)
-	var vegetaStats vegeta.Metrics
+	globalWorkerMetrics.vegetaStats = vegeta.Metrics{}
 	for {
 	attack:
 		select {
@@ -208,7 +280,7 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1000))
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
-					vegetaStats.Add(res)
+					globalWorkerMetrics.vegetaStats.Add(res)
 					if statsdClient != nil {
 						var httpStatus = fmt.Sprintf("status:%d", res.Code)
 						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1.0)
@@ -219,9 +291,9 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 						attacker.Stop()
 
 						// Flush stats
-						vegetaStats.Close()
-						log.Debug().Msgf("Vegeta stats: %+v", vegetaStats)
-						vegetaStats = vegeta.Metrics{}
+						globalWorkerMetrics.vegetaStats.Close()
+						log.Debug().Msgf("Vegeta stats: %+v", globalWorkerMetrics.vegetaStats)
+						globalWorkerMetrics.vegetaStats = vegeta.Metrics{}
 
 						break attack // starts a new attack
 					default:
@@ -232,9 +304,9 @@ func worker(targetUrl string, statsdAddr string, configParams configParams, para
 				targeter = nil
 
 				// Flush stats
-				vegetaStats.Close()
-				log.Debug().Msgf("Vegeta stats: %+v", vegetaStats)
-				vegetaStats = vegeta.Metrics{}
+				globalWorkerMetrics.vegetaStats.Close()
+				log.Debug().Msgf("Vegeta stats: %+v", globalWorkerMetrics.vegetaStats)
+				globalWorkerMetrics.vegetaStats = vegeta.Metrics{}
 			} else {
 				time.Sleep(1 * time.Second) // sleep a bit, so we don't busy spin when there is no attack
 			}
