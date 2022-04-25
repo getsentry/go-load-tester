@@ -25,12 +25,6 @@ var globalWorkerMetrics struct {
 	vegetaStats vegeta.Metrics
 }
 
-// func copyVegetaStats(stats *vegeta.Metrics) vegeta.Metrics {
-// 	var resultStats vegeta.Metrics
-// 	resultStats.Earliest = stats.Earliest
-
-// }
-
 // collectWorkerMetricsLoop regularly produces global master metrics
 func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 	if statsdClient == nil {
@@ -43,25 +37,28 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 	const success_rate_threshold = 0.9
 	const invalid_data_alert_threshold = 5
 
+	// This counter will be increased if the success rate on the given step is lower
+	// than `success_rate_threshold`
 	invalid_data_counter := 0
+
 	var lastFlushVegetaStats vegeta.Metrics
 
 	for {
 		invalid_data_marker := 0
 
-		// Note: this is a shallow copy, but it's fine
+		// Note: this is a shallow copy, but it should be fine if we don't access any thread-unsafe
+		// attributes like maps/slices.
 		currentVegetaStats := globalWorkerMetrics.vegetaStats
-		log.Debug().Msgf("Current stats pre: %+v", currentVegetaStats)
 		currentVegetaStats.Histogram = nil
 		currentVegetaStats.Latencies = vegeta.LatencyMetrics{}
 		currentVegetaStats.Errors = make([]string, 0)
 		currentVegetaStats.StatusCodes = make(map[string]int)
-
-		// Compute aggregated metrics for the test so far
 		currentVegetaStats.Close()
-		log.Debug().Msgf("Current stats post: %+v", currentVegetaStats)
+		log.Trace().Msgf("Current stats: %+v", currentVegetaStats)
 
-		// Only do the calculations if there's some data present
+		// Check if vegeta is struggling to reach the desired attack rate.
+		// This might mean that the target is not ready to accept the desired traffic.
+		// Only do the calculations if there's some data present.
 		if !currentVegetaStats.Earliest.IsZero() && currentVegetaStats.Earliest == lastFlushVegetaStats.Earliest {
 			requestsMade := currentVegetaStats.Requests - lastFlushVegetaStats.Requests
 			successfulRequests := currentVegetaStats.Success*float64(currentVegetaStats.Requests) - lastFlushVegetaStats.Success*float64(lastFlushVegetaStats.Requests)
@@ -69,7 +66,7 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 			if requestsMade > 0 {
 				successRate = successfulRequests / float64(requestsMade)
 			}
-			log.Debug().Msgf("Over the last flush period, requests made: %d, successful requests: %s", requestsMade, successfulRequests)
+			log.Debug().Msgf("Over the last flush period, requests made: %d, successful requests: %.2f, success rate: %.2f", requestsMade, successfulRequests, successRate)
 
 			if successRate < success_rate_threshold {
 				invalid_data_counter += 1
@@ -78,9 +75,9 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 			}
 
 			if invalid_data_counter > invalid_data_alert_threshold {
+				// The running test is most likely invalid
 				invalid_data_marker = 1
 			}
-
 		}
 
 		_ = statsdClient.Gauge("vegeta.data_invalid", float64(invalid_data_marker), tags, sampleRate)
@@ -89,15 +86,8 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 		_ = statsdClient.Gauge("vegeta.success_pct", currentVegetaStats.Success, tags, sampleRate)
 		_ = statsdClient.Gauge("vegeta.requests", float64(currentVegetaStats.Requests), tags, sampleRate)
 
-		for code, responses := range currentVegetaStats.StatusCodes {
-			finalTags := []string{}
-			copy(finalTags, tags)
-			responseCode := fmt.Sprintf("status:%s", code)
-			finalTags = append(finalTags, responseCode)
-			_ = statsdClient.Gauge("vegeta.status_codes", float64(responses), finalTags, sampleRate)
-		}
-
 		lastFlushVegetaStats = currentVegetaStats
+
 		time.Sleep(flushPeriod)
 	}
 }
