@@ -204,9 +204,3 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
 	return client
 }
-
-// DeepCopy deepcopies a to b using json marshaling
-func DeepCopy(a interface{}, b interface{}) {
-	bytes, _ := json.Marshal(a)
-	json.Unmarshal(bytes, b)
-}
