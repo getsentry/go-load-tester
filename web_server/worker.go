@@ -25,6 +25,12 @@ var globalWorkerMetrics struct {
 	vegetaStats vegeta.Metrics
 }
 
+// func copyVegetaStats(stats *vegeta.Metrics) vegeta.Metrics {
+// 	var resultStats vegeta.Metrics
+// 	resultStats.Earliest = stats.Earliest
+
+// }
+
 // collectWorkerMetricsLoop regularly produces global master metrics
 func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 	if statsdClient == nil {
@@ -41,15 +47,16 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 	var lastFlushVegetaStats vegeta.Metrics
 
 	for {
-		var currentVegetaStats vegeta.Metrics
 		invalid_data_marker := 0
 		now := time.Now()
 
-		utils.DeepCopy(globalWorkerMetrics.vegetaStats, &currentVegetaStats)
-		// Compute aggregated metrics
+		// Note: this is a shallow copy, but it's fine
+		currentVegetaStats := globalWorkerMetrics.vegetaStats
+
+		// Compute aggregated metrics for the test so far
 		currentVegetaStats.Close()
 
-		// Only compute the
+		// Only do the calculations if there's some data present
 		if !currentVegetaStats.Earliest.IsZero() && currentVegetaStats.Earliest == lastFlushVegetaStats.Earliest {
 			requestsMade := currentVegetaStats.Requests - lastFlushVegetaStats.Requests
 			successfulRequests := currentVegetaStats.Success*float64(currentVegetaStats.Requests) - lastFlushVegetaStats.Success*float64(lastFlushVegetaStats.Requests)
@@ -85,6 +92,7 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 			_ = statsdClient.Gauge("vegeta.status_codes", float64(responses), finalTags, sampleRate)
 		}
 
+		lastFlushVegetaStats = currentVegetaStats
 		time.Sleep(flushPeriod)
 	}
 }
