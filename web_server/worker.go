@@ -48,10 +48,10 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 
 	for {
 		invalid_data_marker := 0
-		now := time.Now()
 
 		// Note: this is a shallow copy, but it's fine
 		currentVegetaStats := globalWorkerMetrics.vegetaStats
+		log.Debug().Msgf("Current stats: %+v", currentVegetaStats)
 
 		// Compute aggregated metrics for the test so far
 		currentVegetaStats.Close()
@@ -64,7 +64,7 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 			if requestsMade > 0 {
 				successRate = successfulRequests / float64(requestsMade)
 			}
-			log.Debug().Msgf("[%s] Over the last flush period, requests made: %s, successful requests: %s", now.Format(time.RFC3339), requestsMade, successfulRequests)
+			log.Debug().Msgf("Over the last flush period, requests made: %d, successful requests: %s", requestsMade, successfulRequests)
 
 			if successRate < success_rate_threshold {
 				invalid_data_counter += 1
