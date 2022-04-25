@@ -51,10 +51,15 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 
 		// Note: this is a shallow copy, but it's fine
 		currentVegetaStats := globalWorkerMetrics.vegetaStats
-		log.Debug().Msgf("Current stats: %+v", currentVegetaStats)
+		log.Debug().Msgf("Current stats pre: %+v", currentVegetaStats)
+		currentVegetaStats.Histogram = nil
+		currentVegetaStats.Latencies = vegeta.LatencyMetrics{}
+		currentVegetaStats.Errors = make([]string, 0)
+		currentVegetaStats.StatusCodes = make(map[string]int)
 
 		// Compute aggregated metrics for the test so far
 		currentVegetaStats.Close()
+		log.Debug().Msgf("Current stats post: %+v", currentVegetaStats)
 
 		// Only do the calculations if there's some data present
 		if !currentVegetaStats.Earliest.IsZero() && currentVegetaStats.Earliest == lastFlushVegetaStats.Earliest {
