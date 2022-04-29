@@ -9,9 +9,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var session SessionJob = SessionJob{
-	StartedRange:    time.Duration(1 * time.Minute),
-	DurationRange:   time.Duration(2 * time.Minute),
+var session = SessionJob{
+	StartedRange:    1 * time.Minute,
+	DurationRange:   2 * time.Minute,
 	NumReleases:     3,
 	NumEnvironments: 4,
 	NumUsers:        5,
