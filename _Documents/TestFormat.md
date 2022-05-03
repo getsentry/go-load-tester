@@ -106,18 +106,18 @@ Here's an example of session parameters:
 }
 ```
 
-| field           | description                                                                                                                                           |
-|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| startedRange    | duration range for the start of the session<br>relative to now (all generated sessions will<br>have startTime between 0 and -startRange from <br>now. |
-| durationRange   | the duration of the session ( between 0 and the <br>specified duration)                                                                               |
-| numReleases     | number of unique releases created                                                                                                                     |
-| numEnvironments | number of unique environments created                                                                                                                 |
-| numUsers        | number or unique users                                                                                                                                |
-| okWeight        | relative weight of session with ok status                                                                                                             |
-| exitedWeight    | relative weight of session with exited status                                                                                                         |
-| erroredWeight   | relative weight of session with errored status                                                                                                        |
-| crashedWeight   | relative weight of session with crashed status                                                                                                        |
-| abnormalWeight  | relative weight of session with abnormal status                                                                                                       |
+| field           | description                                                                                                                                      |
+|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| startedRange    | duration range for the start of the session relative to now (all generated sessions will have <br>startTime between 0 and -startRange from now.  |
+| durationRange   | the duration of the session ( between 0 and the specified duration)                                                                          |
+| numReleases     | number of unique releases created                                                                                                                |
+| numEnvironments | number of unique environments created                                                                                                            |
+| numUsers        | number or unique users                                                                                                                           |
+| okWeight        | relative weight of session with ok status                                                                                                        |
+| exitedWeight    | relative weight of session with exited status                                                                                                    |
+| erroredWeight   | relative weight of session with errored status                                                                                                   |
+| crashedWeight   | relative weight of session with crashed status                                                                                                   |
+| abnormalWeight  | relative weight of session with abnormal status                                                                                                  |
 
 
 ### Transaction
@@ -125,5 +125,40 @@ Here's an example of session parameters:
 Here's an example of transaction parameters:
 
 ```json
-
+{
+  "transactionDurationMax":"10m" ,
+  "transactionDurationMin": "1m" ,
+  "transactionTimestampSpread": "5h" ,
+  "minSpans": 5,
+  "maxSpans": 40,
+  "numReleases": 1000 ,
+  "numUsers": 2000,
+  "minBreadcrumbs": 5,
+  "maxBreadcrumbs": 25,
+  "breadcrumbCategories": ["auth", "web-request", "query"],
+  "breadcrumbLevels": ["fatal", "error", "warning", "info", "debug"],
+  "breadcrumbsTypes": ["default", "http", "error"] ,
+  "breadcrumbMessages": [ "Authenticating the user_name", "IOError: [Errno 2] No such file"],
+  "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
+  "operations": ["browser","http","db","resource.script"]
+}
 ```
+
+| field                      | description                                                                                                                 |
+|----------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| transactionDurationMax     | TransactionDurationMax the maximum duration for a transaction                                                               |
+| transactionDurationMin     | TransactionDurationMin the minimum duration for a transaction                                                               |
+| transactionTimestampSpread | TransactionTimestampSpread the spread (from Now) of the timestamp, generated <br> transactions will have timestamps between |
+| minSpans                   | MinSpans specifies the minimum number of spans generated in a transaction                                                   |
+| maxSpans                   | MaxSpans specifies the maximum number of spans generated in a transaction                                                   |
+| numReleases                | NumReleases specifies the maximum number of unique releases generated in a test                                             |
+| numUsers                   | NumUsers specifies the maximum number of unique users generated in a test                                                   |
+| minBreadcrumbs             | MinBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test                                 |
+| maxBreadcrumbs             | MaxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test                                 |
+| breadcrumbCategories       | BreadcrumbCategories the categories used for breadcrumbs <br> (if not specified defaults will be used )                     |
+| breadcrumbLevels           | BreadcrumbLevels specifies levels used for breadcrumbs <br> (if not specified defaults will be used )                       |
+| breadcrumbsTypes           | BreadcrumbsTypes specifies the types used for breadcrumbs <br> (if not specified defaults will be used )                    |
+| breadcrumbMessages         | BreadcrumbMessages specifies messages set in breadcrumbs <br> (if not specified defaults will be used )                     |
+| measurements               | Measurements specifies measurements to be used <br> (if not specified NO measurements will be generated)                    |
+| operations                 | Operations specifies the operations to be used <br> (if not specified NO operations will be generated)                      |
+	
