@@ -108,6 +108,9 @@ func RandomChoice(choices []string, relativeWeights []int64) (string, error) {
 
 // SimpleRandomChoice returns one of the given choices picked up randomly, with the same probability for each choice.
 func SimpleRandomChoice(choices []string) string {
+	if len(choices) == 0 {
+		return ""
+	}
 	weights := make([]int64, len(choices))
 	for i := 0; i < len(weights); i++ {
 		weights[i] = 1
