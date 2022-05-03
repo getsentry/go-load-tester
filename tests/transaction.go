@@ -13,23 +13,30 @@ type TransactionJob struct {
 	//TransactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between
 	//`Now` and `Now-TransactionTimestampSpread`
 	TransactionTimestampSpread time.Duration `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
-	//MinSpans determines the minimum number of spans generated in a transaction
+	//MinSpans specifies the minimum number of spans generated in a transaction
 	MinSpans uint64 `json:"minSpans,omitempty" yaml:"minSpans,omitempty"`
-	//MaxSpans determines the maximum number of spans generated in a transaction
+	//MaxSpans specifies the maximum number of spans generated in a transaction
 	MaxSpans uint64 `json:"maxSpans,omitempty" yaml:"maxSpans,omitempty"`
-	//NumReleases determines the maximum number of unique releases generated in a test
+	//NumReleases specifies the maximum number of unique releases generated in a test
 	NumReleases uint64 `json:"numReleases,omitempty" yaml:"numReleases,omitempty"`
-	//NumUsers determines the maximum number of unique users generated in a test
+	//NumUsers specifies the maximum number of unique users generated in a test
 	NumUsers uint64 `json:"numUsers,omitempty" yaml:"numUsers,omitempty"`
-	//Min
-	MinBreadcrumbs       uint64   `json:"minBreadcrumbs,omitempty" yaml:"minBreadcrumbs,omitempty"`
-	MaxBreadcrumbs       uint64   `json:"maxBreadcrumbs,omitempty" yaml:"maxBreadcrumbs,omitempty"`
+	//MinBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test
+	MinBreadcrumbs uint64 `json:"minBreadcrumbs,omitempty" yaml:"minBreadcrumbs,omitempty"`
+	//MaxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test
+	MaxBreadcrumbs uint64 `json:"maxBreadcrumbs,omitempty" yaml:"maxBreadcrumbs,omitempty"`
+	// BreadcrumbCategories the categories used for breadcrumbs (if not specified defaults will be used *)
 	BreadcrumbCategories []string `json:"breadcrumbCategories,omitempty" yaml:"breadcrumbCategories,omitempty"`
-	BreadcrumbLevels     []string `json:"breadcrumbLevels,omitempty" yaml:"breadcrumbLevels,omitempty"`
-	BreadcrumbsTypes     []string `json:"breadcrumbsTypes,omitempty" yaml:"breadcrumbsTypes,omitempty"`
-	BreadcrumbMessages   []string `json:"breadcrumbMessages,omitempty" yaml:"breadcrumbMessages,omitempty"`
-	Measurements         []string `json:"measurements,omitempty" yaml:"measurements,omitempty"`
-	Operations           []string `json:"operations,omitempty" yaml:"operations,omitempty"`
+	//BreadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *)
+	BreadcrumbLevels []string `json:"breadcrumbLevels,omitempty" yaml:"breadcrumbLevels,omitempty"`
+	//BreadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *)
+	BreadcrumbsTypes []string `json:"breadcrumbsTypes,omitempty" yaml:"breadcrumbsTypes,omitempty"`
+	//BreadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *)
+	BreadcrumbMessages []string `json:"breadcrumbMessages,omitempty" yaml:"breadcrumbMessages,omitempty"`
+	//Measurements specifies measurements to be used (if not specified NO measurements will be generated)
+	Measurements []string `json:"measurements,omitempty" yaml:"measurements,omitempty"`
+	//Operations specifies the operations to be used (if not specified NO operations will be generated)
+	Operations []string `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
 // Transaction defines the JSON format of a Sentry transaction,
