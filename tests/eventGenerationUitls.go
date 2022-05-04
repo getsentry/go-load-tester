@@ -111,66 +111,6 @@ type Span struct {
 	Data           any               `json:"data,omitempty"`
 }
 
-func TransactionGenerator(job TransactionJob) func() Transaction {
-	idGen := EventIdGenerator()
-	relGen := ReleaseGenerator(job.NumReleases)
-	transGen := func() string {
-		if Flip() {
-			return ""
-		} else {
-			return fmt.Sprintf("mytransaction%d", rand.Intn(100))
-		}
-	}
-	userGen := UserGenerator(job.NumUsers)
-	osGen := OsContextGenerator()
-	deviceGen := DeviceContextGenerator()
-	appGen := AppContextGenerator()
-	traceGen := TraceContextGenerator(job.Operations)
-	breadcrumbsGen := BreadcrumbsGenerator(job.MinBreadcrumbs, job.MaxBreadcrumbs, job.BreadcrumbCategories,
-		job.BreadcrumbLevels, job.BreadcrumbsTypes, job.BreadcrumbMessages)
-	measurementsGen := MeasurementsGenerator(job.Measurements)
-	spansGen := SpansGenerator(job.MinSpans, job.MaxSpans, job.Operations)
-
-	transactionDurationMin := job.TransactionDurationMin
-	transactionDurationMax := job.TransactionDurationMax
-	transactionTimestampSpread := job.TransactionTimestampSpread
-	transactionRange := transactionDurationMax - transactionDurationMin
-
-	return func() Transaction {
-		trace := traceGen()
-		transactionId := trace.SpanId
-		traceId := trace.TraceId
-
-		now := time.Now()
-		transactionDuration := time.Duration(float64(transactionRange) * rand.Float64())
-		transactionDelta := time.Duration(float64(transactionTimestampSpread) * rand.Float64())
-		timestamp := now.Add(-transactionDelta)
-		startTimestamp := timestamp.Add(-transactionDuration)
-
-		retVal := Transaction{
-			Timestamp:      toUtcString(timestamp),
-			StartTimestamp: toUtcString(startTimestamp),
-			EventId:        idGen(),
-			Release:        relGen(),
-			Transaction:    transGen(),
-			Logger:         utils.SimpleRandomChoice([]string{"foo.bar.baz", "bam.baz.bad", ""}),
-			Environment:    utils.SimpleRandomChoice([]string{"production", "development", "staging"}),
-			User:           userGen(),
-			Contexts: Contexts{
-				Os:     osGen(),
-				Device: deviceGen(),
-				App:    appGen(),
-				Trace:  trace,
-			},
-			Breadcrumbs:  breadcrumbsGen(),
-			Measurements: measurementsGen(),
-			Spans:        spansGen(transactionId, traceId, startTimestamp, timestamp),
-		}
-
-		return retVal
-	}
-}
-
 func SpansGenerator(minSpans uint64, maxSpans uint64, operations []string) func(transactionId string, traceId string, transactionStart time.Time, timestamp time.Time) []Span {
 
 	operationGen := OperationGenerator(operations)

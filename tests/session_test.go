@@ -22,7 +22,7 @@ var session = SessionJob{
 	AbnormalWeight:  10,
 }
 
-func TestJsonSerialisation(t *testing.T) {
+func TestSessionJobJsonSerialisation(t *testing.T) {
 	data, err := json.Marshal(&session)
 	if err != nil {
 		t.Error("Could not serialize session to JSON")
@@ -33,10 +33,10 @@ func TestJsonSerialisation(t *testing.T) {
 		t.Error("Could not deserialize session")
 	}
 	if diff := cmp.Diff(session, result); diff != "" {
-		t.Errorf("Failed to session JSON serialisation round trip (-expect +actual)\n %s", diff)
+		t.Errorf("Failed to serialize, session JSON serialisation round trip (-expect +actual)\n %s", diff)
 	}
 }
-func TestYamlSerialisation(t *testing.T) {
+func TestSessionJobYamlSerialisation(t *testing.T) {
 	data, err := yaml.Marshal(&session)
 	if err != nil {
 		t.Error("Could not serialize session to JSON")

@@ -1,0 +1,22 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="go-load-tester" type="docker-deploy" factoryName="dockerfile" server-name="Docker">
+    <deployment type="dockerfile">
+      <settings>
+        <option name="imageTag" value="go-load-tester" />
+        <option name="attachToContainerNeeded" value="true" />
+        <option name="command" value="run master --port 8877 --log trace --color --statsd-server localhost:8125 --target-url  http://localhost:3001" />
+        <option name="containerName" value="go-load-tester" />
+        <option name="portBindings">
+          <list>
+            <DockerPortBindingImpl>
+              <option name="containerPort" value="8877" />
+              <option name="hostPort" value="8877" />
+            </DockerPortBindingImpl>
+          </list>
+        </option>
+        <option name="sourceFilePath" value="Dockerfile" />
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>
