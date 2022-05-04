@@ -126,7 +126,7 @@ func TransactionGenerator(job TransactionJob) func() Transaction {
 	deviceGen := DeviceContextGenerator()
 	appGen := AppContextGenerator()
 	traceGen := TraceContextGenerator(job.Operations)
-	breadcrumbsGen := BreadcrumbsGenerator(job.MinBreadCrumbs, job.MaxBreadCrumbs, job.BreadcrumbCategories,
+	breadcrumbsGen := BreadcrumbsGenerator(job.MinBreadcrumbs, job.MaxBreadcrumbs, job.BreadcrumbCategories,
 		job.BreadcrumbLevels, job.BreadcrumbsTypes, job.BreadcrumbMessages)
 	measurementsGen := MeasurementsGenerator(job.Measurements)
 	spansGen := SpansGenerator(job.MinSpans, job.MaxSpans, job.Operations)
