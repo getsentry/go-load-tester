@@ -157,7 +157,7 @@ func getSessionBody(sp SessionJob) ([]byte, error) {
 
 	var buff *bytes.Buffer
 
-	buff, err = utils.SessionEnvelopeFromBody(eventIdStr, now, body)
+	buff, err = utils.EnvelopeFromBody(eventIdStr, now, "session", body)
 	if err != nil {
 		return nil, err
 	}

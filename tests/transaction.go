@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/getsentry/go-load-tester/utils"
+	"github.com/rs/zerolog/log"
+	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
 	"math/rand"
+	"net/http"
 	"time"
 )
 
@@ -43,6 +46,54 @@ type TransactionJob struct {
 	Measurements []string `json:"measurements,omitempty" yaml:"measurements,omitempty"`
 	//Operations specifies the operations to be used (if not specified NO operations will be generated)
 	Operations []string `json:"operations,omitempty" yaml:"operations,omitempty"`
+}
+
+func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.Targeter {
+	var transactionParams TransactionJob
+	err := json.Unmarshal(rawTransaction, &transactionParams)
+
+	if err != nil {
+		log.Error().Err(err).Msgf("invalid transaction params received\nraw data\n%s",
+			rawTransaction)
+	}
+
+	transactionGenerator := TransactionGenerator(transactionParams)
+
+	return func(tgt *vegeta.Target) error {
+		if tgt == nil {
+			return vegeta.ErrNilTarget
+		}
+
+		tgt.Method = "POST"
+
+		//TODO add more sophisticated projectId/projectKey generation
+		projectId := "1"
+		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
+
+		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", url, projectId)
+		tgt.Header = make(http.Header)
+		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader(projectKey))
+		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
+
+		transaction := transactionGenerator()
+
+		body, err := json.Marshal(transaction)
+		if err != nil {
+			return err
+		}
+
+		//var buff *bytes.Buffer
+		now := time.Now().UTC()
+		buff, err := utils.EnvelopeFromBody(transaction.EventId, now, "transaction", body)
+		if err != nil {
+			return err
+		}
+
+		tgt.Body = buff.Bytes()
+		log.Trace().Msg("Attacking")
+		return nil
+	}
+
 }
 
 // Transaction defines the JSON format of a Sentry transactionJob,
@@ -242,4 +293,8 @@ func (raw transactionJobRaw) into(result *TransactionJob) error {
 	result.Measurements = raw.Measurements
 	result.Operations = raw.Operations
 	return nil
+}
+
+func init() {
+	RegisterTargeter("transaction", NewTransactionTargeter)
 }

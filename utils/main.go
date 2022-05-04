@@ -20,9 +20,9 @@ func GetAuthHeader(projectKey string) string {
 	return fmt.Sprintf("Sentry sentry_key=%s,sentry_version=7", projectKey)
 }
 
-// SessionEnvelopeFromBody  creates the body of a session
+// EnvelopeFromBody  creates the body of a session
 // shamelessly stolen and modified from sentry-go/transport.go
-func SessionEnvelopeFromBody(eventID string, sentAt time.Time, body json.RawMessage) (*bytes.Buffer, error) {
+func EnvelopeFromBody(eventID string, sentAt time.Time, eventType string, body json.RawMessage) (*bytes.Buffer, error) {
 
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
@@ -42,7 +42,7 @@ func SessionEnvelopeFromBody(eventID string, sentAt time.Time, body json.RawMess
 		Type   string `json:"type"`
 		Length int    `json:"length"`
 	}{
-		Type:   "session",
+		Type:   eventType,
 		Length: len(body),
 	})
 	if err != nil {
