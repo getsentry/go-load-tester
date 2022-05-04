@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -100,6 +101,10 @@ func RunMasterWebServer(port string, statsdAddr string, targetUrl string) {
 
 	go collectMasterMetricsLoop(statsdClient)
 
+	engine.Static("/static", "./static")
+	engine.LoadHTMLGlob("templates/*.html")
+
+	engine.GET("/docs", mainDocsHandler)
 	engine.GET("/stop/", masterStopHandler)
 	engine.POST("/stop/", masterStopHandler)
 	engine.POST("/command/", handlerWithStatsd(statsdClient, masterCommandHandler))
@@ -257,4 +262,17 @@ func masterUnregisterHandler(ctx *gin.Context) {
 		log.Error().Err(err).Msg("Error while trying to unregister worker")
 		ctx.JSON(http.StatusBadRequest, errorJsonResponse("Could not register request"))
 	}
+}
+func mainDocsHandler(ctx *gin.Context) {
+	ctx.HTML(http.StatusOK, "docs.html", gin.H{"content": getDocContent()})
+}
+
+func getDocContent() string {
+	fileName := "_Documents/TestFormat.md"
+	content, err := os.ReadFile(fileName)
+	if err != nil {
+		log.Error().Err(err).Msgf("could not read doc file:%s ", fileName)
+		return "<h1>Internal Error</h1>"
+	}
+	return string(content)
 }
