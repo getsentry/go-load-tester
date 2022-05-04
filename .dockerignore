@@ -8,3 +8,6 @@
 !tests
 !utils
 !web_server
+!static
+!templates
+!_Documents

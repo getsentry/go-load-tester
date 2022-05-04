@@ -1,0 +1,13 @@
+#base{
+    margin: 1em;
+    font-size: larger;
+}
+
+td{
+    padding: 0.1em 0.5em;
+    font-size: larger;
+}
+
+pre{
+    font-size: larger;
+}
