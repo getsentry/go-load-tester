@@ -113,7 +113,7 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdA
 		log.Error().Err(err).Msg("Failed to register with master, worker stopping")
 		return
 	}
-	go worker(targetUrl, statsdAddr, *config, paramChannel)
+	go worker(targetUrl, statsdAddr, config, paramChannel)
 	if len(port) > 0 {
 		port = fmt.Sprintf(":%s", port)
 	}
@@ -258,13 +258,13 @@ func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
 // The worker uses a command channel to accept new commands
 // Once a command is received the current attack (if there is a current attack)
 // is stopped and a new attack started
-func worker(targetUrl string, statsdAddr string, configParams configParams, paramsChan <-chan tests.TestParams) {
+func worker(targetUrl string, statsdAddr string, configParams *configParams, paramsChan <-chan tests.TestParams) {
 
-	if len(configParams.StatsdServerUrl) > 0 {
+	if configParams != nil && len(configParams.StatsdServerUrl) > 0 {
 		//override configuration with master statsdUrl
 		statsdAddr = configParams.StatsdServerUrl
 	}
-	if len(configParams.TargetUrl) > 0 {
+	if configParams != nil && len(configParams.TargetUrl) > 0 {
 		//override configuration with master targetUrl
 		targetUrl = configParams.TargetUrl
 	}
