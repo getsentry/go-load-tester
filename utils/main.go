@@ -20,9 +20,9 @@ func GetAuthHeader(projectKey string) string {
 	return fmt.Sprintf("Sentry sentry_key=%s,sentry_version=7", projectKey)
 }
 
-// SessionEnvelopeFromBody  creates the body of a session
+// EnvelopeFromBody  creates the body of a session
 // shamelessly stolen and modified from sentry-go/transport.go
-func SessionEnvelopeFromBody(eventID string, sentAt time.Time, body json.RawMessage) (*bytes.Buffer, error) {
+func EnvelopeFromBody(eventID string, sentAt time.Time, eventType string, body json.RawMessage) (*bytes.Buffer, error) {
 
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
@@ -42,7 +42,7 @@ func SessionEnvelopeFromBody(eventID string, sentAt time.Time, body json.RawMess
 		Type   string `json:"type"`
 		Length int    `json:"length"`
 	}{
-		Type:   "session",
+		Type:   eventType,
 		Length: len(body),
 	})
 	if err != nil {
@@ -104,7 +104,19 @@ func RandomChoice(choices []string, relativeWeights []int64) (string, error) {
 	}
 	// we shouldn't get here
 	return "", errors.New("internal error RandomChoice")
+}
 
+// SimpleRandomChoice returns one of the given choices picked up randomly, with the same probability for each choice.
+func SimpleRandomChoice(choices []string) string {
+	if len(choices) == 0 {
+		return ""
+	}
+	weights := make([]int64, len(choices))
+	for i := 0; i < len(weights); i++ {
+		weights[i] = 1
+	}
+	retVal, _ := RandomChoice(choices, weights)
+	return retVal
 }
 
 // UuidAsHex similar with uuid.hex from python ( returns the UUID as a hex string without - )
@@ -147,7 +159,7 @@ func GetExternalIPv4() (string, error) {
 			return ip.String(), nil
 		}
 	}
-	return "", errors.New("are you connected to the network?")
+	return "", errors.New("no address found, make sure you are connected to the network")
 }
 
 // ExponentialBackoff returns an exponentially increasing Duration

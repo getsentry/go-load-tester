@@ -16,5 +16,5 @@
 # vendor/
 
 /.idea
-/.run
 go-load-tester
+/.run
