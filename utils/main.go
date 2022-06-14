@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 func GetAuthHeader(projectKey string) string {
@@ -215,4 +214,11 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 	}
 	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
 	return client
+}
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
