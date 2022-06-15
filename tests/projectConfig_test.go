@@ -190,17 +190,45 @@ func TestCleanExpiredProjects(t *testing.T) {
 	veryRecent := now.Add(-time.Second)
 
 	type testExpectations struct {
-		veryOld        []int
-		old            []int
-		new            []int
-		veryNew        []int
+		// veryOld expired cached projects
+		veryOld []int
+		// old expired cached projects
+		old []int
+		// new still valid cached projects
+		new []int
+		// verNew still valid cached projects
+		veryNew []int
+		// expected contents of the linked list as seen when using PopFront
+		expectedListFront []int
+		// total number of cached projects (after clean)
 		expectedCached int
 	}
 
 	testCases := []testExpectations{
-		{veryOld: []int{1, 2, 3, 4}, old: []int{3, 4, 5, 6}, new: []int{5, 6, 7, 8}, veryNew: []int{8, 9, 10}, expectedCached: 6},
-		{veryOld: []int{1, 2, 3, 4}, old: []int{3, 4, 5, 6}, new: []int{}, veryNew: []int{}, expectedCached: 0},
-		{veryOld: []int{1}, old: []int{4}, new: []int{5, 6, 7, 8}, veryNew: []int{10, 11, 12}, expectedCached: 7},
+		{
+			veryOld:           []int{1, 2, 3, 4},
+			old:               []int{3, 4, 5, 6},
+			new:               []int{5, 6, 7, 8},
+			veryNew:           []int{8, 9, 10},
+			expectedCached:    6,
+			expectedListFront: []int{10, 9, 8, 8, 7, 6, 5},
+		},
+		{
+			veryOld:           []int{1, 2, 3, 4},
+			old:               []int{3, 4, 5, 6},
+			new:               []int{},
+			veryNew:           []int{},
+			expectedListFront: []int{},
+			expectedCached:    0,
+		},
+		{
+			veryOld:           []int{1},
+			old:               []int{4},
+			new:               []int{5, 6, 7, 8},
+			veryNew:           []int{10, 11, 12},
+			expectedListFront: []int{12, 11, 10, 8, 7, 6, 5},
+			expectedCached:    7,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -221,6 +249,15 @@ func TestCleanExpiredProjects(t *testing.T) {
 			}
 			if len(vr.cachedProjects) != testCase.expectedCached {
 				t.Errorf("Expected %d in cache found %d", testCase.expectedCached, len(vr.cachedProjects))
+			}
+		}
+		for _, expectedProjId := range testCase.expectedListFront {
+			projDate, err := vr.cachedProjectDates.PopFront()
+			if err != nil {
+				t.Errorf("Expecting %d in cachedProjectDates got error:\n%v", expectedProjId, err)
+			}
+			if projDate.id != expectedProjId {
+				t.Errorf("Expecting project: %d got: %d", expectedProjId, projDate.id)
 			}
 		}
 	}

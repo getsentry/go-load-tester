@@ -136,6 +136,83 @@ func TestPushingFromBothSidesAndPullingBack(t *testing.T) {
 	assertContents(t, []int{4, 2, 1, 3, 5}, l.PopBack)
 }
 
+func TestPopFront(t *testing.T) {
+	var l = DoubleLinkedList[int]{}
+
+	l.PushFront(1)
+	l.PushBack(2)
+	l.PushFront(3)
+	l.PushBack(4)
+	//we should have  front--> 3 1 2 4 <--back
+	val, err := l.PopFront()
+	if err != nil || *val != 3 {
+		t.Errorf("Bad result from pop front expected 3 got something else")
+	}
+	val, err = l.PopFront()
+	if err != nil || *val != 1 {
+		t.Errorf("Bad result from pop front expected 1 got something else")
+	}
+	// now we should have front--> 2 4 <--back
+	// pull from back to see that that's what we get
+	val, err = l.PopBack()
+	if err != nil || *val != 4 {
+		t.Errorf("Bad result from pop back expected 4 got something else")
+	}
+	val, err = l.PopBack()
+	if err != nil || *val != 2 {
+		t.Errorf("Bad result from pop back expected 2 got something else")
+	}
+	// we should be empty (both pops should return error)
+
+	val, err = l.PopFront()
+	if err == nil {
+		t.Errorf("Bad result from pop front expected empty list")
+	}
+	val, err = l.PopBack()
+	if err == nil {
+		t.Errorf("Bad result from pop back expected empty list")
+	}
+}
+
+func TestPopBack(t *testing.T) {
+	var l = DoubleLinkedList[int]{}
+
+	l.PushFront(1)
+	l.PushBack(2)
+	l.PushFront(3)
+	l.PushBack(4)
+	//we should have  front--> 3 1 2 4 <--back
+	val, err := l.PopBack()
+	if err != nil || *val != 4 {
+		t.Errorf("Bad result from pop back expected 4 got something else")
+	}
+	val, err = l.PopBack()
+	if err != nil || *val != 2 {
+		t.Errorf("Bad result from pop back expected 2 got something else")
+	}
+	// now we should have front--> 3 1 <--back
+	// pull from front to see that that's what we get
+	val, err = l.PopFront()
+	if err != nil || *val != 3 {
+		t.Errorf("Bad result from pop front expected 3 got something else")
+	}
+	val, err = l.PopFront()
+	if err != nil || *val != 1 {
+		t.Errorf("Bad result from pop front expected 1 got something else")
+	}
+	// we should be empty (both pops should return error)
+
+	val, err = l.PopBack()
+	if err == nil {
+		t.Errorf("Bad result from pop back expected empty list")
+	}
+	val, err = l.PopFront()
+	if err == nil {
+		t.Errorf("Bad result from pop front expected empty list")
+	}
+
+}
+
 func assertEmptyList[T any](t *testing.T, l *DoubleLinkedList[T], auxMessage string) {
 	if l.PeekFront() != nil {
 		t.Errorf("Empty list returns data at Front (%s)", auxMessage)

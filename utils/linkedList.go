@@ -80,6 +80,10 @@ func (dll *DoubleLinkedList[T]) PopFront() (*T, error) {
 
 	dll.first = temp.next
 
+	if dll.first != nil {
+		dll.first.prev = nil
+	}
+
 	if dll.last == temp {
 		dll.last = nil // the last element also clean last
 	}
@@ -99,6 +103,10 @@ func (dll *DoubleLinkedList[T]) PopBack() (*T, error) {
 	temp := dll.last
 
 	dll.last = temp.prev
+
+	if dll.last != nil {
+		dll.last.next = nil
+	}
 
 	if dll.first == temp {
 		dll.first = nil // the last element also clean first
