@@ -29,33 +29,83 @@ type TestParams struct {
 	Params         json.RawMessage
 }
 
-// ConfigurableTargeterBuilder is a function that when given a URL and a read channel of
-// raw JSON messages returns a vegeta.Targeter that is able to change the events it generates
+// LoadTesterBuilder is a function that when given a URL and a read channel of
+// raw JSON messages returns a LoadTester that is able to change the events it generates
 // to reflect the parameter passed through the JSON messages channel.
 // Note: the raw JSON messages received through the channel need to be "compatible" with the specific
 // targeter. Getting the proper builder for a type of message is outside this function's responsibilities
-// (the dispatch is done via GetTargeter inside the worker)
-type ConfigurableTargeterBuilder func(url string, params json.RawMessage) vegeta.Targeter
+// (the dispatch is done via GetLoadTester inside the worker)
+type LoadTesterBuilder func(url string, params json.RawMessage) LoadTester
 
-func RegisterTargeter(name string, builder ConfigurableTargeterBuilder) {
-	converters.lock.Lock()
-	defer converters.lock.Unlock()
-	converters.targeterBuilders[name] = builder
+// LoadSplitter is a function that knows how to split a load test request between multiple
+// workers. In the simplest (and most common) case it just splits the load messages/timeInterval to
+// the number of workers by giving each worker the load messages/(timeInterval * numWorkers).
+// If this is your case just use SimpleLoadSplitter, if you need something more sophisticated
+// implement your own that decomposes your TestParams in the proper way.
+// Note: The function must return a slice of TestParams of size numWorkers.
+type LoadSplitter func(masterParams TestParams, numWorkers int) ([]TestParams, error)
+
+// LoadTester is an interface implemented by all load tests.
+// This is used by the web_server.worker to handle loads based on the TestParams passed in the
+// request.
+type LoadTester interface {
+	// GetTargeter will be called by the worker at the beginning of an attack in order to
+	// create a targeter for the particular TestParams passed. This Targeter will be used
+	// during the attack to construct requests (this function will be called once per attack)
+	GetTargeter() vegeta.Targeter
+	// ProcessResult will be called by the worker during an attack for each Result returned by the system
+	// under test
+	ProcessResult(res *vegeta.Result)
 }
 
-// GetTargeter returns the TargeterBuilder for a particular type of message. The name represents the
-// type of load message passed
-func GetTargeter(testType string) ConfigurableTargeterBuilder {
-	converters.lock.Lock()
-	defer converters.lock.Unlock()
-	return converters.targeterBuilders[testType]
+func SimpleLoadSplitter(masterParams TestParams, numWorkers int) ([]TestParams, error) {
+	if numWorkers <= 0 {
+		return nil, fmt.Errorf("invalid number of workers %d need at least 1", numWorkers)
+	}
+	// divide attack intensity among workers
+	newParams := masterParams
+	newParams.Per = time.Duration(numWorkers) * masterParams.Per
+	retVal := make([]TestParams, 0, numWorkers)
+	for idx := 0; idx < numWorkers; idx++ {
+		retVal = append(retVal, newParams)
+	}
+	return retVal, nil
 }
 
-var converters = struct {
-	targeterBuilders map[string]ConfigurableTargeterBuilder
-	lock             sync.Mutex
+func RegisterTestType(name string, tester LoadTesterBuilder, splitter LoadSplitter) {
+	testHandlers.lock.Lock()
+	defer testHandlers.lock.Unlock()
+	testHandlers.loadTesters[name] = tester
+	if splitter != nil {
+		testHandlers.loadSplitters[name] = splitter
+	}
+}
+
+// GetLoadTester returns the TargeterBuilder for a particular type of message.
+func GetLoadTester(testType string) LoadTesterBuilder {
+	testHandlers.lock.Lock()
+	defer testHandlers.lock.Unlock()
+	return testHandlers.loadTesters[testType]
+}
+
+// GetLoadSplitter a loadSplitter for the current type of test.
+func GetLoadSplitter(testType string) LoadSplitter {
+	testHandlers.lock.Lock()
+	defer testHandlers.lock.Unlock()
+	if retVal, ok := testHandlers.loadSplitters[testType]; ok && retVal != nil {
+		return retVal
+	}
+	return SimpleLoadSplitter
+}
+
+// testHandlers define behaviour for all supported test types
+var testHandlers = struct {
+	loadTesters   map[string]LoadTesterBuilder
+	loadSplitters map[string]LoadSplitter
+	lock          sync.Mutex
 }{
-	targeterBuilders: make(map[string]ConfigurableTargeterBuilder),
+	loadTesters:   make(map[string]LoadTesterBuilder),
+	loadSplitters: make(map[string]LoadSplitter),
 }
 
 type testParamsRaw struct {

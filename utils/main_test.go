@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/google/go-cmp/cmp"
 	"testing"
 	"time"
 
@@ -52,8 +53,8 @@ func TestRandomChoiceDoseNotPanic(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, error := RandomChoice(*test.choices, test.weights)
-		if (error != nil) != test.expectError {
+		_, err := RandomChoice(*test.choices, test.weights)
+		if (err != nil) != test.expectError {
 			t.Errorf("test: %s failed", test.name)
 		}
 	}
@@ -86,6 +87,35 @@ func TestPerSecond(t *testing.T) {
 
 		if got < test.want*lowerBound || got > test.want*upperBound {
 			t.Errorf("Expecting %f got %f", test.want, got)
+		}
+	}
+}
+
+func TestDivide(t *testing.T) {
+
+	type testData struct {
+		numerator   int
+		denominator int
+		expected    []int
+	}
+
+	var tests = []testData{
+		{numerator: 1, denominator: 1, expected: []int{1}},
+		{numerator: 5, denominator: 3, expected: []int{2, 2, 1}},
+		{numerator: 6, denominator: 3, expected: []int{2, 2, 2}},
+		{numerator: 3, denominator: 5, expected: []int{1, 1, 1, 0, 0}},
+		{numerator: -5, denominator: 3, expected: []int{-2, -2, -1}},
+		{numerator: -6, denominator: 3, expected: []int{-2, -2, -2}},
+		{numerator: 0, denominator: 3, expected: []int{0, 0, 0}},
+	}
+
+	for _, test := range tests {
+		result, err := Divide(test.numerator, test.denominator)
+		if err != nil {
+			t.Errorf("Divide(%d, %d) caused error:\n%v", test.numerator, test.denominator, err)
+		}
+		if diff := cmp.Diff(test.expected, result); diff != "" {
+			t.Errorf("Failed to serialize, session JSON serialisation round trip (-expect +actual)\n %s", diff)
 		}
 	}
 }

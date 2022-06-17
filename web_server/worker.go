@@ -237,19 +237,19 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 }
 
 // createTargeter creates a targeter for the passed test parameters
-func createTargeter(targetUrl string, params tests.TestParams) vegeta.Targeter {
+func createTargeter(targetUrl string, params tests.TestParams) tests.LoadTester {
 	log.Trace().Msgf("Creating targeter:%v", params)
 	if params.AttackDuration == 0 {
 		// an attack with 0 duration is a stop request
 		log.Info().Msg("Stop command received")
 		return nil
 	}
-	targeterBuilder := tests.GetTargeter(params.TestType)
-	if targeterBuilder == nil {
+	loadTesterBuilder := tests.GetLoadTester(params.TestType)
+	if loadTesterBuilder == nil {
 		log.Error().Msgf("Invalid attack type %s", params.TestType)
 		return nil
 	}
-	return targeterBuilder(targetUrl, params.Params)
+	return loadTesterBuilder(targetUrl, params.Params)
 
 }
 
@@ -269,7 +269,7 @@ func worker(targetUrl string, statsdAddr string, configParams *configParams, par
 		targetUrl = configParams.TargetUrl
 	}
 	log.Info().Msgf("Worker started targetUrl=%s, statsdAddr=%s", targetUrl, statsdAddr)
-	var targeter vegeta.Targeter
+	var loadTester tests.LoadTester
 	var params tests.TestParams
 	var statsdClient = utils.GetStatsd(statsdAddr)
 	globalWorkerMetrics.vegetaStats = vegeta.Metrics{}
@@ -277,20 +277,21 @@ func worker(targetUrl string, statsdAddr string, configParams *configParams, par
 	attack:
 		select {
 		case params = <-paramsChan:
-			targeter = createTargeter(targetUrl, params)
+			loadTester = createTargeter(targetUrl, params)
 		default:
-			if targeter != nil {
+			if loadTester != nil {
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1000))
-				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
+				for res := range attacker.Attack(loadTester.GetTargeter(), rate, params.AttackDuration, params.Description) {
 					globalWorkerMetrics.vegetaStats.Add(res)
+					loadTester.ProcessResult(res)
 					if statsdClient != nil {
 						var httpStatus = fmt.Sprintf("status:%d", res.Code)
 						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1.0)
 					}
 					select {
 					case params = <-paramsChan:
-						targeter = createTargeter(targetUrl, params)
+						loadTester = createTargeter(targetUrl, params)
 						attacker.Stop()
 
 						// Flush stats
@@ -304,7 +305,7 @@ func worker(targetUrl string, statsdAddr string, configParams *configParams, par
 					}
 				}
 				// finish current attack, reset timing
-				targeter = nil
+				loadTester = nil
 
 				// Flush stats
 				globalWorkerMetrics.vegetaStats.Close()

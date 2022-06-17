@@ -48,7 +48,13 @@ type TransactionJob struct {
 	Operations []string `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
-func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.Targeter {
+type transactionLoadTester struct {
+	url                  string
+	transactionGenerator func() Transaction
+}
+
+// newTransactionLoadTester creates a LoadTester for the specified transaction parameters and url
+func newTransactionLoadTester(url string, rawTransaction json.RawMessage) LoadTester {
 	var transactionParams TransactionJob
 	err := json.Unmarshal(rawTransaction, &transactionParams)
 
@@ -59,6 +65,13 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 
 	transactionGenerator := TransactionGenerator(transactionParams)
 
+	return &transactionLoadTester{
+		transactionGenerator: transactionGenerator,
+		url:                  url,
+	}
+}
+
+func (tlt *transactionLoadTester) GetTargeter() vegeta.Targeter {
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -70,12 +83,12 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 		projectId := "1"
 		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
 
-		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", url, projectId)
+		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", tlt.url, projectId)
 		tgt.Header = make(http.Header)
 		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader(projectKey))
 		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
 
-		transaction := transactionGenerator()
+		transaction := tlt.transactionGenerator()
 
 		body, err := json.Marshal(transaction)
 		if err != nil {
@@ -93,7 +106,10 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 		log.Trace().Msg("Attacking")
 		return nil
 	}
+}
 
+func (tlt *transactionLoadTester) ProcessResult(_ *vegeta.Result) {
+	return // nothing to do
 }
 
 // Transaction defines the JSON format of a Sentry transactionJob,
@@ -296,5 +312,5 @@ func (raw transactionJobRaw) into(result *TransactionJob) error {
 }
 
 func init() {
-	RegisterTargeter("transaction", NewTransactionTargeter)
+	RegisterTestType("transaction", newTransactionLoadTester, nil)
 }
