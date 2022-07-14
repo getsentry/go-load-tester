@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"time"
+
 	"github.com/getsentry/go-load-tester/utils"
 	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
-	"math/rand"
-	"net/http"
-	"time"
 )
 
 // TransactionJob is how a transactionJob load test is parameterized
@@ -84,7 +85,11 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 
 		//var buff *bytes.Buffer
 		now := time.Now().UTC()
-		buff, err := utils.EnvelopeFromBody(transaction.EventId, now, "transaction", body)
+		extraEnvelopeHeaders := map[string]string{
+			"trace_id":   transaction.Contexts.Trace.TraceId,
+			"public_key": projectKey,
+		}
+		buff, err := utils.EnvelopeFromBody(transaction.EventId, now, "transaction", extraEnvelopeHeaders, body)
 		if err != nil {
 			return err
 		}
