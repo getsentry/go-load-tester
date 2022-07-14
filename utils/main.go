@@ -22,18 +22,19 @@ func GetAuthHeader(projectKey string) string {
 
 // EnvelopeFromBody  creates the body of a session
 // shamelessly stolen and modified from sentry-go/transport.go
-func EnvelopeFromBody(eventID string, sentAt time.Time, eventType string, body json.RawMessage) (*bytes.Buffer, error) {
+func EnvelopeFromBody(eventID string, sentAt time.Time, eventType string, extraHeaders map[string]string, body json.RawMessage) (*bytes.Buffer, error) {
 
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	// envelope header
-	err := enc.Encode(struct {
-		EventID string    `json:"event_id"`
-		SentAt  time.Time `json:"sent_at"`
-	}{
-		EventID: eventID,
-		SentAt:  sentAt,
-	})
+	envelopeHeaders := map[string]interface{}{
+		"event_id": eventID,
+		"sent_at":  sentAt,
+	}
+	for k, v := range extraHeaders {
+		envelopeHeaders[k] = v
+	}
+	err := enc.Encode(envelopeHeaders)
 	if err != nil {
 		return nil, err
 	}

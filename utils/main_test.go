@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"encoding/json"
 	"github.com/google/go-cmp/cmp"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,5 +119,76 @@ func TestDivide(t *testing.T) {
 		if diff := cmp.Diff(test.expected, result); diff != "" {
 			t.Errorf("Failed to serialize, session JSON serialisation round trip (-expect +actual)\n %s", diff)
 		}
+	}
+}
+
+func TestEnvelopeFromBody(t *testing.T) {
+	var d = time.Date(2010, 2, 1, 10, 11, 12, 0, time.UTC)
+	var headers = map[string]string{"a": "1", "b": "2"}
+	rawMessage := `{"k1":"v1"}`
+	body, err := EnvelopeFromBody("abc", d, "transaction", headers, []byte(rawMessage))
+
+	if err != nil {
+		t.Errorf("Failed to create envelope: %v", err)
+	}
+
+	s := body.String()
+	strs := strings.Split(s, "\n")
+
+	if len(strs) != 4 {
+		t.Errorf("Invalid serialisation of envelope expected 3 lines got %d", len(strs))
+	}
+
+	envHeaderRaw := strs[0]
+	itemHeaderRaw := strs[1]
+	bodyRaw := strs[2]
+
+	var envHeader map[string]any
+	var itemHeader map[string]any
+	var envBody map[string]any
+
+	// it should have a new line termination:
+	if strs[3] != "" {
+		t.Errorf("Expected last line of the envelope to be empty")
+	}
+
+	err = json.Unmarshal([]byte(envHeaderRaw), &envHeader)
+	if err != nil {
+		t.Errorf("could not deserialize envelope header:\n%v", err)
+	}
+	expectedEnvHeader := map[string]any{
+		"a":        "1",
+		"b":        "2",
+		"event_id": "abc",
+		"sent_at":  "2010-02-01T10:11:12Z",
+	}
+
+	if diff := cmp.Diff(expectedEnvHeader, envHeader); diff != "" {
+		t.Errorf("Envelope header error (-expect +actual)\n %s", diff)
+	}
+
+	err = json.Unmarshal([]byte(itemHeaderRaw), &itemHeader)
+	if err != nil {
+		t.Errorf("could not deserialize item header:\n%v", err)
+	}
+
+	expectedItemHeader := map[string]any{
+		"type":   "transaction",
+		"length": 11.0,
+	}
+
+	if diff := cmp.Diff(itemHeader, expectedItemHeader); diff != "" {
+		t.Errorf("Item header error (-expect +actual)\n %s", diff)
+	}
+	err = json.Unmarshal([]byte(bodyRaw), &envBody)
+	if err != nil {
+		t.Errorf("could not deserialize envelope body:\n%v", err)
+	}
+	expectedBody := map[string]any{
+		"k1": "v1",
+	}
+
+	if diff := cmp.Diff(envBody, expectedBody); diff != "" {
+		t.Errorf("EnvelopeBody error (-expect +actual)\n %s", diff)
 	}
 }
