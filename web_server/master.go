@@ -130,18 +130,24 @@ func ForwardAttack(params tests.TestParams) {
 		log.Error().Msg("Cannot forward attack, no workers registered")
 		return
 	}
+	loadSplitter := tests.GetLoadSplitter(params.TestType)
+
 	// divide attack intensity among workers
-	params.Per = time.Duration(len(workerUrls)) * params.Per
-	newParams, err := json.Marshal(params)
-	if err != nil {
+	workerParams, err := loadSplitter(params, len(workerUrls))
+	if err != nil || len(workerParams) != len(workerUrls) {
 		log.Error().Err(err).Msg("Error generating request")
 		return
 	}
 
 	client := getDefaultHttpClient()
 
-	for _, workerUrl := range workerUrls {
-		go func(workerUrl string) {
+	for idx, workerUrl := range workerUrls {
+		go func(workerUrl string, idx int) {
+			newParams, err := json.Marshal(workerParams[idx])
+			if err != nil {
+				log.Error().Err(err).Msg("Error generating request")
+				return
+			}
 			body := bytes.NewReader(newParams)
 			var commandUrl = fmt.Sprintf("%s/command/", workerUrl)
 			req, err := http.NewRequest("POST", commandUrl, body)
@@ -159,7 +165,7 @@ func ForwardAttack(params tests.TestParams) {
 					log.Error().Err(err).Msg("error closing the body of the attack")
 				}
 			}
-		}(workerUrl)
+		}(workerUrl, idx)
 	}
 }
 

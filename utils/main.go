@@ -217,3 +217,46 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
 	return client
 }
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
+
+const NegativeDivision = errorString("cannot divide a number into a number of parts <=0")
+
+// Divide Distributes numerator into denominator pieces as equally as possible
+func Divide(numerator, denominator int) ([]int, error) {
+	if denominator <= 0 {
+		return nil, NegativeDivision
+	}
+
+	sign := 1
+
+	if numerator < 0 {
+		sign = -1
+		numerator *= -1
+	}
+
+	base := numerator / denominator
+	rest := numerator % denominator
+
+	retVal := make([]int, 0, denominator)
+
+	for idx := 0; idx < denominator; idx++ {
+		if idx < rest {
+			retVal = append(retVal, sign*base+sign)
+		} else {
+			retVal = append(retVal, sign*base)
+		}
+
+	}
+
+	return retVal, nil
+}
