@@ -52,17 +52,27 @@ type Session struct {
 	} `json:"attrs"`
 }
 
-// NewSessionTargeter returns a targeter that listens over a channel for changes
-// to the session generation spec and creates requests (i.e. Target(s)) matching
-// the configuration
-func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter {
+type sessionLoadTester struct {
+	url           string
+	sessionParams SessionJob
+}
+
+// newSessionLoadTester creates a LoadTester for the specified session parameters and url
+func newSessionLoadTester(url string, rawSessionParams json.RawMessage) LoadTester {
 	var sessionParams SessionJob
-	err := json.Unmarshal(rawSession, &sessionParams)
+	err := json.Unmarshal(rawSessionParams, &sessionParams)
 	if err != nil {
 		log.Error().Err(err).Msgf("invalid session params received\nraw data\n%s",
-			rawSession)
+			rawSessionParams)
 	}
 
+	return &sessionLoadTester{
+		url:           url,
+		sessionParams: sessionParams,
+	}
+}
+
+func (slt *sessionLoadTester) GetTargeter() vegeta.Targeter {
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -74,12 +84,12 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 		projectId := "1"
 		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
 
-		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", url, projectId)
+		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", slt.url, projectId)
 		tgt.Header = make(http.Header)
 		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader(projectKey))
 		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
 
-		body, err := getSessionBody(sessionParams)
+		body, err := getSessionBody(slt.sessionParams)
 		if err != nil {
 			return err
 		}
@@ -88,6 +98,10 @@ func NewSessionTargeter(url string, rawSession json.RawMessage) vegeta.Targeter 
 		log.Trace().Msg("Attacking")
 		return nil
 	}
+}
+
+func (slt *sessionLoadTester) ProcessResult(_ *vegeta.Result) {
+	return // nothing to do
 }
 
 func getSessionBody(sp SessionJob) ([]byte, error) {
@@ -157,7 +171,7 @@ func getSessionBody(sp SessionJob) ([]byte, error) {
 
 	var buff *bytes.Buffer
 
-	buff, err = utils.EnvelopeFromBody(eventIdStr, now, "session", body)
+	buff, err = utils.EnvelopeFromBody(eventIdStr, now, "session", map[string]string{}, body)
 	if err != nil {
 		return nil, err
 	}
@@ -267,5 +281,5 @@ type sessionJobRaw struct {
 }
 
 func init() {
-	RegisterTargeter("session", NewSessionTargeter)
+	RegisterTestType("session", newSessionLoadTester, nil)
 }

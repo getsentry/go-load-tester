@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"time"
+
 	"github.com/getsentry/go-load-tester/utils"
 	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
-	"math/rand"
-	"net/http"
-	"time"
 )
 
 // TransactionJob is how a transactionJob load test is parameterized
@@ -48,7 +49,13 @@ type TransactionJob struct {
 	Operations []string `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
-func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.Targeter {
+type transactionLoadTester struct {
+	url                  string
+	transactionGenerator func() Transaction
+}
+
+// newTransactionLoadTester creates a LoadTester for the specified transaction parameters and url
+func newTransactionLoadTester(url string, rawTransaction json.RawMessage) LoadTester {
 	var transactionParams TransactionJob
 	err := json.Unmarshal(rawTransaction, &transactionParams)
 
@@ -59,6 +66,13 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 
 	transactionGenerator := TransactionGenerator(transactionParams)
 
+	return &transactionLoadTester{
+		transactionGenerator: transactionGenerator,
+		url:                  url,
+	}
+}
+
+func (tlt *transactionLoadTester) GetTargeter() vegeta.Targeter {
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -70,12 +84,12 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 		projectId := "1"
 		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
 
-		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", url, projectId)
+		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", tlt.url, projectId)
 		tgt.Header = make(http.Header)
 		tgt.Header.Set("X-Sentry-Auth", utils.GetAuthHeader(projectKey))
 		tgt.Header.Set("Content-Type", "application/x-sentry-envelope")
 
-		transaction := transactionGenerator()
+		transaction := tlt.transactionGenerator()
 
 		body, err := json.Marshal(transaction)
 		if err != nil {
@@ -84,7 +98,11 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 
 		//var buff *bytes.Buffer
 		now := time.Now().UTC()
-		buff, err := utils.EnvelopeFromBody(transaction.EventId, now, "transaction", body)
+		extraEnvelopeHeaders := map[string]string{
+			"trace_id":   transaction.Contexts.Trace.TraceId,
+			"public_key": projectKey,
+		}
+		buff, err := utils.EnvelopeFromBody(transaction.EventId, now, "transaction", extraEnvelopeHeaders, body)
 		if err != nil {
 			return err
 		}
@@ -93,7 +111,10 @@ func NewTransactionTargeter(url string, rawTransaction json.RawMessage) vegeta.T
 		log.Trace().Msg("Attacking")
 		return nil
 	}
+}
 
+func (tlt *transactionLoadTester) ProcessResult(_ *vegeta.Result) {
+	return // nothing to do
 }
 
 // Transaction defines the JSON format of a Sentry transactionJob,
@@ -296,5 +317,5 @@ func (raw transactionJobRaw) into(result *TransactionJob) error {
 }
 
 func init() {
-	RegisterTargeter("transaction", NewTransactionTargeter)
+	RegisterTestType("transaction", newTransactionLoadTester, nil)
 }

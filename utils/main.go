@@ -22,18 +22,19 @@ func GetAuthHeader(projectKey string) string {
 
 // EnvelopeFromBody  creates the body of a session
 // shamelessly stolen and modified from sentry-go/transport.go
-func EnvelopeFromBody(eventID string, sentAt time.Time, eventType string, body json.RawMessage) (*bytes.Buffer, error) {
+func EnvelopeFromBody(eventID string, sentAt time.Time, eventType string, extraHeaders map[string]string, body json.RawMessage) (*bytes.Buffer, error) {
 
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	// envelope header
-	err := enc.Encode(struct {
-		EventID string    `json:"event_id"`
-		SentAt  time.Time `json:"sent_at"`
-	}{
-		EventID: eventID,
-		SentAt:  sentAt,
-	})
+	envelopeHeaders := map[string]interface{}{
+		"event_id": eventID,
+		"sent_at":  sentAt,
+	}
+	for k, v := range extraHeaders {
+		envelopeHeaders[k] = v
+	}
+	err := enc.Encode(envelopeHeaders)
 	if err != nil {
 		return nil, err
 	}
@@ -222,4 +223,40 @@ func Min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
+
+const NegativeDivision = errorString("cannot divide a number into a number of parts <=0")
+
+// Divide Distributes numerator into denominator pieces as equally as possible
+func Divide(numerator, denominator int) ([]int, error) {
+	if denominator <= 0 {
+		return nil, NegativeDivision
+	}
+
+	sign := 1
+
+	if numerator < 0 {
+		sign = -1
+		numerator *= -1
+	}
+
+	base := numerator / denominator
+	rest := numerator % denominator
+
+	retVal := make([]int, 0, denominator)
+
+	for idx := 0; idx < denominator; idx++ {
+		if idx < rest {
+			retVal = append(retVal, sign*base+sign)
+		} else {
+			retVal = append(retVal, sign*base)
+		}
+
+	}
+
+	return retVal, nil
 }
