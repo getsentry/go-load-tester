@@ -200,8 +200,6 @@ func TestCleanExpiredProjects(t *testing.T) {
 		veryNew []int
 		// expected contents of the linked list as seen when using PopFront
 		expectedListFront []int
-		// total number of cached projects (after clean)
-		expectedCached int
 	}
 
 	testCases := []testExpectations{
@@ -210,7 +208,6 @@ func TestCleanExpiredProjects(t *testing.T) {
 			old:               []int{3, 4, 5, 6},
 			new:               []int{5, 6, 7, 8},
 			veryNew:           []int{8, 9, 10},
-			expectedCached:    6,
 			expectedListFront: []int{10, 9, 8, 8, 7, 6, 5},
 		},
 		{
@@ -219,7 +216,6 @@ func TestCleanExpiredProjects(t *testing.T) {
 			new:               []int{},
 			veryNew:           []int{},
 			expectedListFront: []int{},
-			expectedCached:    0,
 		},
 		{
 			veryOld:           []int{1},
@@ -227,7 +223,6 @@ func TestCleanExpiredProjects(t *testing.T) {
 			new:               []int{5, 6, 7, 8},
 			veryNew:           []int{10, 11, 12},
 			expectedListFront: []int{12, 11, 10, 8, 7, 6, 5},
-			expectedCached:    7,
 		},
 	}
 
@@ -241,24 +236,33 @@ func TestCleanExpiredProjects(t *testing.T) {
 
 		vr.cleanExpiredProjects(expiryTime, now)
 
+		expectedCacheProjects := make(map[int]bool)
+		// check that we have the expected projects cached
 		for _, ids := range [][]int{testCase.new, testCase.veryNew} {
 			for _, id := range ids {
+				expectedCacheProjects[id] = true
 				if _, ok := vr.cachedProjects[id]; !ok {
 					t.Errorf("Could not find project %d in cached projects", id)
 				}
 			}
-			if len(vr.cachedProjects) != testCase.expectedCached {
-				t.Errorf("Expected %d in cache found %d", testCase.expectedCached, len(vr.cachedProjects))
-			}
 		}
+		if len(vr.cachedProjects) != len(expectedCacheProjects) {
+			t.Errorf("Expected %d in cache found %d", len(expectedCacheProjects), len(vr.cachedProjects))
+		}
+		elm := vr.cachedProjectDates.Front()
 		for _, expectedProjId := range testCase.expectedListFront {
-			projDate, err := vr.cachedProjectDates.PopFront()
-			if err != nil {
-				t.Errorf("Expecting %d in cachedProjectDates got error:\n%v", expectedProjId, err)
+			if elm == nil {
+				t.Errorf("Expected %d in cachedProjectDates got nothing", expectedProjId)
+				break
 			}
+			projDate := elm.Value.(projectDate)
 			if projDate.id != expectedProjId {
 				t.Errorf("Expecting project: %d got: %d", expectedProjId, projDate.id)
 			}
+			elm = elm.Next()
+		}
+		if elm != nil {
+			t.Errorf("chached project date queue contains more elements than expected")
 		}
 	}
 }

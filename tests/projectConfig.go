@@ -1,11 +1,10 @@
 package tests
 
 import (
+	"container/list"
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/getsentry/go-load-tester/utils"
 )
 
 // ProjectConfigJob is how a projectConfigJob is parametrize
@@ -46,7 +45,7 @@ type virtualRelay struct {
 	cachedProjects map[int]time.Time
 	// a list with the project that have been cached in the order that they have been cached
 	// it is used as an easy way to find expired projects (without walking through the whole cacheProjects dict)
-	cachedProjectDates utils.DoubleLinkedList[projectDate]
+	cachedProjectDates list.List
 	// lock for mutual exclusion during virtual Relay operations
 	lock sync.Mutex
 }
@@ -144,6 +143,8 @@ func (vr *virtualRelay) UpdateProjectStates(pendingProjects []int, resolvedProje
 	updateProjectStates(vr, pendingProjects, resolvedProjects, time.Now())
 }
 
+// updateProjectStates updates the list of cached projects setting their refresh date to now
+// if the projects were already cached the old values are removed and the new values are inserted
 func updateProjectStates(vr *virtualRelay, pendingProjects []int, resolvedProjects []int, now time.Time) {
 	if vr == nil {
 		panic("nil virtual Relay")
@@ -152,6 +153,7 @@ func updateProjectStates(vr *virtualRelay, pendingProjects []int, resolvedProjec
 	vr.lock.Lock()
 	defer vr.lock.Unlock()
 
+	// update the list of pending project ids
 	for _, pendingProjectId := range pendingProjects {
 		vr.pendingProjects[pendingProjectId] = true
 	}
@@ -159,13 +161,17 @@ func updateProjectStates(vr *virtualRelay, pendingProjects []int, resolvedProjec
 	for _, projectId := range resolvedProjects {
 		vr.cachedProjects[projectId] = now
 		vr.cachedProjectDates.PushFront(projectDate{id: projectId, lastUpdate: now})
-		delete(vr.pendingProjects, projectId) // remove it if it was pending
+		// remove resolved projects from the list of pending projects (since they are not pending anymore)
+		delete(vr.pendingProjects, projectId)
 	}
 }
 
+// cleanExpiredProjects removes all projects from the front of the queue that have been added before the
+// maximum allowed time (i.e. now-expiryTime)
 func (vr *virtualRelay) cleanExpiredProjects(expiryTime time.Duration, now time.Time) {
 	cutoff := now.Add(-expiryTime)
-	for val := vr.cachedProjectDates.PeekBack(); val != nil; val = vr.cachedProjectDates.PeekBack() {
+	for elm := vr.cachedProjectDates.Back(); elm != nil; elm = vr.cachedProjectDates.Back() {
+		val := elm.Value.(projectDate)
 		if val.lastUpdate.Before(cutoff) {
 			// value is too old, pop it
 			// this is a candidate for delete (if there is a more recent update it will
@@ -174,7 +180,7 @@ func (vr *virtualRelay) cleanExpiredProjects(expiryTime time.Duration, now time.
 			if ok && lastUpdate.Before(cutoff) {
 				delete(vr.cachedProjects, val.id)
 			}
-			_, _ = vr.cachedProjectDates.PopBack()
+			vr.cachedProjectDates.Remove(elm)
 		} else {
 			return
 		}

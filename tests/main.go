@@ -29,19 +29,23 @@ type TestParams struct {
 	Params         json.RawMessage
 }
 
-// LoadTesterBuilder is a function that when given a URL and a read channel of
+// LoadTesterBuilder is a function that when given a target URL and a read channel of
 // raw JSON messages returns a LoadTester that is able to change the events it generates
 // to reflect the parameter passed through the JSON messages channel.
+// The target url is generally the base url of the server under test. The LoadTester return must
+// be able to create a vegeta.Targeter, that is an object that returns load test requests and therefore
+// must be able to create the urls of the load test requests, the targetUrl is used for this.
+// The target url is coming (in the current implementation) from a CLI parameter.
 // Note: the raw JSON messages received through the channel need to be "compatible" with the specific
 // targeter. Getting the proper builder for a type of message is outside this function's responsibilities
 // (the dispatch is done via GetLoadTester inside the worker)
-type LoadTesterBuilder func(url string, params json.RawMessage) LoadTester
+type LoadTesterBuilder func(targetUrl string, params json.RawMessage) LoadTester
 
 // LoadSplitter is a function that knows how to split a load test request between multiple
 // workers. In the simplest (and most common) case it just splits the load messages/timeInterval to
 // the number of workers by giving each worker the load messages/(timeInterval * numWorkers).
 // If this is your case just use SimpleLoadSplitter, if you need something more sophisticated
-// implement your own that decomposes your TestParams in the proper way.
+// implement your own that decomposes your TestParams in the proper way required by your test.
 // Note: The function must return a slice of TestParams of size numWorkers.
 type LoadSplitter func(masterParams TestParams, numWorkers int) ([]TestParams, error)
 
@@ -54,10 +58,14 @@ type LoadTester interface {
 	// during the attack to construct requests (this function will be called once per attack)
 	GetTargeter() vegeta.Targeter
 	// ProcessResult will be called by the worker during an attack for each Result returned by the system
-	// under test
+	// under test. If you don't care about the results returned just provide an empty implementation.
 	ProcessResult(res *vegeta.Result)
 }
 
+// SimpleLoadSplitter implements the typical case of load splitting, where there needs to be no special
+// handling of the load (i.e. each request is independent of each other) and therefore all it does is
+// divide the requested attack frequency to the number of workers so that each worker will handle
+// attack_frequency/numWorkers requests.
 func SimpleLoadSplitter(masterParams TestParams, numWorkers int) ([]TestParams, error) {
 	if numWorkers <= 0 {
 		return nil, fmt.Errorf("invalid number of workers %d need at least 1", numWorkers)
@@ -72,6 +80,10 @@ func SimpleLoadSplitter(masterParams TestParams, numWorkers int) ([]TestParams, 
 	return retVal, nil
 }
 
+// RegisterTestType registers the necessary test handlers (LoadTesterBuilder and LoadSplitter) with
+// a test type (a string). This enables the worker loop to retrieve the proper handlers for a
+// test request. The worker loop looks-up the proper handlers by using the request TestParams.Name
+// field and then starts the attack with the retrieved handlers.
 func RegisterTestType(name string, tester LoadTesterBuilder, splitter LoadSplitter) {
 	testHandlers.lock.Lock()
 	defer testHandlers.lock.Unlock()
@@ -108,6 +120,8 @@ var testHandlers = struct {
 	loadSplitters: make(map[string]LoadSplitter),
 }
 
+// testParamsRaw is used as a utility struct to deserialize test params from JSON and YAML, this is
+// then converted into TestParams which is simpler to work with.
 type testParamsRaw struct {
 	Name           string
 	Description    string
