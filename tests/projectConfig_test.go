@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+//getNow returns a time that is always the same
+func getNow() time.Time {
+	return time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
+}
+
 func TestGetNextRelay(t *testing.T) {
 	numRelays := 7
 	numProjects := 100
@@ -28,7 +33,7 @@ func TestGetProjectsForRequestEmptyRelay(t *testing.T) {
 	numProjects := 5
 	maxProjectId := 100
 	expiryTime := time.Minute * 5
-	now := time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
+	now := getNow()
 
 	type testExpectations struct {
 		base     int
@@ -56,7 +61,7 @@ func TestGetProjectsForRequestPendingConfigs(t *testing.T) {
 	numProjects := 5
 	maxProjectId := 100
 	expiryTime := time.Minute * 5
-	now := time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
+	now := getNow()
 
 	type testExpectations struct {
 		base            int
@@ -103,7 +108,7 @@ func TestGetProjectsForRequestWithCache(t *testing.T) {
 	numProjects := 5
 	maxProjectId := 100
 	expiryTime := time.Minute * 5
-	now := time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
+	now := getNow()
 
 	type testExpectations struct {
 		base           int
@@ -131,7 +136,7 @@ func TestGetProjectsForRequestWithCacheAndPending(t *testing.T) {
 	numProjects := 5
 	maxProjectId := 100
 	expiryTime := time.Minute * 5
-	now := time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
+	now := getNow()
 
 	type testExpectations struct {
 		base                 int
@@ -182,7 +187,7 @@ func TestGetProjectsForRequestWithCacheAndPending(t *testing.T) {
 
 func TestCleanExpiredProjects(t *testing.T) {
 	expiryTime := time.Minute * 5
-	now := time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
+	now := getNow()
 
 	veryExpired := now.Add(-expiryTime * 10)
 	expired := now.Add(-expiryTime - time.Second)

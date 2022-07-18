@@ -1,0 +1,80 @@
+package utils
+
+import (
+	"math/rand"
+	"os"
+	"testing"
+)
+
+func createTestProjectInfoFile() error {
+	data := `
+{
+	"11": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1","access_token":"abc1"},
+	"12": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2","access_token":"abc2"},
+	"13": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3","access_token":"abc3"},
+	"14": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","access_token":"abc4"}
+}
+`
+	f, err := os.Create("projectInfo.json")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = f.WriteString(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteTestProjectInfoFile() {
+	_ = os.Remove("projectInfo.json")
+}
+
+// test FileProjectProvider
+func TestFileProjectProvider(t *testing.T) {
+	err := createTestProjectInfoFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer deleteTestProjectInfoFile()
+
+	provider, err := LoadFileProjectProvider("projectInfo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if provider.GetNumberOfProjects() != 4 {
+		t.Fatal("Number of projects is not 4")
+	}
+
+	// make the test reproducible
+	rand.Seed(1)
+
+	for i := 0; i < 10; i++ {
+		projectId := provider.GetProjectId(7)
+		key := provider.GetProjectKey(projectId)
+		accessToken := provider.GetApiKey(projectId)
+		switch projectId {
+		case "11":
+			if key != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1" || accessToken != "abc1" {
+				t.Fatal("ProjectId 11 is not correct")
+			}
+		case "12":
+			if key != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2" || accessToken != "abc2" {
+				t.Fatal("ProjectId 12 is not correct")
+			}
+		case "13":
+			if key != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3" || accessToken != "abc3" {
+				t.Fatal("ProjectId 13 is not correct")
+			}
+		case "14":
+			if key != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4" || accessToken != "abc4" {
+				t.Fatal("ProjectId 14 is not correct")
+			}
+		default:
+			t.Fatal("ProjectId is not in the expected range")
+		}
+	}
+}

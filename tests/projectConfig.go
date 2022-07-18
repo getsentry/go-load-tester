@@ -92,11 +92,14 @@ func NewVirtualRelay() *virtualRelay {
 	return retVal
 }
 
+// GetProjectsForRequest returns a list of projectIDs that should be requested next, this takes in account
+// the pending projects and the cached projects.
 func (vr *virtualRelay) GetProjectsForRequest(numProjects int, expiryTime time.Duration, maxProjId int) []int {
 	return getProjectsForRequest(vr, numProjects, expiryTime, maxProjId, time.Now(), rand.Intn(maxProjId))
 }
 
 // getProjectsForRequest internal version of GetProjectsForRequest for testing (no time.Now or random stuff)
+// function only used for testing (with injected now), normal usage should go through the struct member function
 func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Duration, maxProjId int,
 	now time.Time, randomBaseProjectId int) []int {
 	if vr == nil {
@@ -145,6 +148,7 @@ func (vr *virtualRelay) UpdateProjectStates(pendingProjects []int, resolvedProje
 
 // updateProjectStates updates the list of cached projects setting their refresh date to now
 // if the projects were already cached the old values are removed and the new values are inserted
+// function only used for testing (with injected now), normal usage should go through the struct member function
 func updateProjectStates(vr *virtualRelay, pendingProjects []int, resolvedProjects []int, now time.Time) {
 	if vr == nil {
 		panic("nil virtual Relay")
