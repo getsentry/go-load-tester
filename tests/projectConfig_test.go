@@ -15,7 +15,7 @@ func getNow() time.Time {
 func TestGetNextRelay(t *testing.T) {
 	numRelays := 7
 	numProjects := 100
-	run := newProjectConfigRun(ProjectConfigJob{NumRelays: numRelays, NumProjects: numProjects})
+	run := projectConfigLoadTesterFromJob(ProjectConfigJob{NumRelays: numRelays, NumProjects: numProjects})
 	for idx := 0; idx < 500; idx++ {
 		//test that we iterate round-robin through the available relays
 		relay, err := run.GetNextRelay()
