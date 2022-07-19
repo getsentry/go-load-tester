@@ -200,21 +200,30 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 		return nil
 	}
 	var client *statsd.Client
+
+	statsdOptions := make([]statsd.Option, 0)
+
+	// Disable Datadog's own telemetry
+	statsdOptions = append(statsdOptions, statsd.WithoutTelemetry())
+	// Disable origin detection (custom datadog protocol feature)
+	statsdOptions = append(statsdOptions, statsd.WithoutOriginDetection())
+
 	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
 	ip, err := GetExternalIPv4()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get worker IP, messages will not be tagged\n")
-		client, err = statsd.New(statsdAddr)
 	} else {
 		var serverTag = fmt.Sprintf("ip:%s", ip)
-		tagsOption := statsd.WithTags([]string{serverTag})
-		client, err = statsd.New(statsdAddr, tagsOption)
+		statsdOptions = append(statsdOptions, statsd.WithTags([]string{serverTag}))
 	}
+
+	client, err = statsd.New(statsdAddr, statsdOptions...)
 	if err != nil {
-		log.Error().Err(err).Msgf("Could not connect to stastd backend")
+		log.Error().Err(err).Msgf("Could not initialize statsd client")
 		return nil
 	}
-	log.Info().Msgf("Registered with statsd server at: %s", statsdAddr)
+
+	log.Info().Msgf("Initialized statsd client, sending metrics to: %s", statsdAddr)
 	return client
 }
 
