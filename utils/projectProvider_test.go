@@ -32,21 +32,26 @@ func deleteTestProjectInfoFile() {
 	_ = os.Remove("projectInfo.json")
 }
 
-// test FileProjectProvider
-func TestFileProjectProvider(t *testing.T) {
+func getProjectProviderUtil(t *testing.T) *FileProjectProvider {
 	err := createTestProjectInfoFile()
 	if err != nil {
 		t.Fatal(err)
+		return nil
 	}
 	defer deleteTestProjectInfoFile()
 
 	provider, err := LoadFileProjectProvider("projectInfo.json")
 	if err != nil {
 		t.Fatal(err)
+		return nil
 	}
+	return provider
+}
 
-	if provider.GetNumberOfProjects() != 4 {
-		t.Fatal("Number of projects is not 4")
+func TestFileProjectProviderRandomAccess(t *testing.T) {
+	provider := getProjectProviderUtil(t)
+	if provider == nil {
+		return // error already logged
 	}
 
 	// make the test reproducible
@@ -76,5 +81,28 @@ func TestFileProjectProvider(t *testing.T) {
 		default:
 			t.Fatal("ProjectId is not in the expected range")
 		}
+	}
+}
+
+func TestFileProjectProviderSequentialAccess(t *testing.T) {
+	provider := getProjectProviderUtil(t)
+	if provider == nil {
+		return // error already logged
+	}
+
+	projectIds := map[string]bool{}
+	currentProjectId := ""
+	// iterate through more than the length
+	for i := 0; i < 6; i++ {
+		projectId := provider.GetNextProjectId(7, currentProjectId)
+		if projectId == "" {
+			t.Fatal("Empty projectId returned")
+		}
+		projectIds[projectId] = true
+		currentProjectId = projectId
+	}
+	// check we iterated through all projects and cycled back to the first one
+	if len(projectIds) != 4 {
+		t.Fatal("Not all projects were returned expected 4 got", len(projectIds))
 	}
 }

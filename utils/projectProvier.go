@@ -42,11 +42,11 @@ func (provider RandomProjectProvider) GetNextProjectId(maxProjects int, currentP
 		log.Error().Err(err).Msg("error parsing project id")
 		return "1"
 	}
-	return fmt.Sprintf("%d", (currentProjectIdInt+1)%maxProjects+1)
+	return fmt.Sprintf("%d", currentProjectIdInt%maxProjects+1)
 }
 
 func (provider RandomProjectProvider) GetProjectKey(projectId string) string {
-	tmp := fmt.Sprintf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%d", projectId)
+	tmp := fmt.Sprintf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%s", projectId)
 	return tmp[len(tmp)-32:]
 }
 
@@ -84,6 +84,12 @@ func (provider FileProjectProvider) GetApiKey(projectId string) string {
 }
 
 func (provider FileProjectProvider) GetNextProjectId(maxProjects int, currentProjectId string) string {
+	if len(provider.projectIds) == 0 {
+		return ""
+	}
+	if currentProjectId == "" {
+		return provider.projectIds[0]
+	}
 	return provider.nextProjectId[currentProjectId]
 }
 

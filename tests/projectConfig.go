@@ -8,7 +8,6 @@ import (
 	"github.com/getsentry/go-load-tester/utils"
 	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -49,7 +48,7 @@ type projectConfigLoadTester struct {
 
 // represents a project id together with the last update date
 type projectDate struct {
-	id         int
+	id         string
 	lastUpdate time.Time
 }
 
@@ -57,9 +56,9 @@ type projectDate struct {
 type virtualRelay struct {
 	// projects that are in the pending state (requested but not yet available, will be re-requested at first
 	// opportunity)
-	pendingProjects map[int]bool
+	pendingProjects map[string]bool
 	// projects that have been cached (together with the last cached date)
-	cachedProjects map[int]time.Time
+	cachedProjects map[string]time.Time
 	// a list with the project that have been cached in the order that they have been cached
 	// it is used as an easy way to find expired projects (without walking through the whole cacheProjects dict)
 	cachedProjectDates list.List
@@ -89,37 +88,40 @@ func projectConfigLoadTesterFromJob(job ProjectConfigJob) *projectConfigLoadTest
 	return retVal
 }
 
+// TODO
 func (lt *projectConfigLoadTester) GetTargeter() vegeta.Targeter {
 	return func(target *vegeta.Target) error {
 		if target == nil {
 			return vegeta.ErrNilTarget
 		}
-		config := lt.config
-		target.Method = "POST"
+		/*
+			config := lt.config
+			target.Method = "POST"
 
-		relay, err := lt.GetNextRelay()
+			relay, err := lt.GetNextRelay()
 
-		if err != nil {
-			log.Error().Err(err).Msg("Could not get virtual relay")
-			return err
-		}
+			if err != nil {
+				log.Error().Err(err).Msg("Could not get virtual relay")
+				return err
+			}
 
-		//TODO redo virtual relay to work with the ProjectProvider
-		relay.GetProjectsForRequest(config.NumProjects, config.BatchInterval, 111)
-
+			//TODO redo virtual relay to work with the ProjectProvider
+			relay.GetProjectsForRequest(config.NumProjects, config.BatchInterval, 111)
+		*/
 		//TODO finish here
 		return nil
 	}
 }
 
+// TODO
 func (lt *projectConfigLoadTester) ProcessResult(result *vegeta.Result) {
 	return
 }
 
 // projectConfigLoadSplitter divides the load for each worker by:
-// dividing the number of total calls per worker
-// dividing the number of relays per worker
-// dividing the number of invalidation calls per worker
+// 	* dividing the number of total calls per worker
+// 	* dividing the number of relays per worker
+// 	* dividing the number of invalidation calls per worker
 func projectConfigLoadSplitter(masterParams TestParams, numWorkers int) ([]TestParams, error) {
 	if numWorkers <= 0 {
 		return nil, fmt.Errorf("invalid number of workers %d need at least 1", numWorkers)
@@ -168,8 +170,8 @@ func (lt *projectConfigLoadTester) GetNextRelay() (*virtualRelay, error) {
 }
 
 func (vr *virtualRelay) InitVirtualRelay() {
-	vr.pendingProjects = make(map[int]bool)
-	vr.cachedProjects = make(map[int]time.Time)
+	vr.pendingProjects = make(map[string]bool)
+	vr.cachedProjects = make(map[string]time.Time)
 }
 
 func NewVirtualRelay() *virtualRelay {
@@ -180,14 +182,18 @@ func NewVirtualRelay() *virtualRelay {
 
 // GetProjectsForRequest returns a list of projectIDs that should be requested next, this takes in account
 // the pending projects and the cached projects.
-func (vr *virtualRelay) GetProjectsForRequest(numProjects int, expiryTime time.Duration, maxProjId int) []int {
-	return getProjectsForRequest(vr, numProjects, expiryTime, maxProjId, time.Now(), rand.Intn(maxProjId))
+func (vr *virtualRelay) GetProjectsForRequest(numProjects int, expiryTime time.Duration, maxNumProjects int,
+	projectProvider utils.ProjectProvider) []string {
+
+	baseProjectId := projectProvider.GetProjectId(maxNumProjects)
+	return getProjectsForRequest(vr, numProjects, expiryTime, maxNumProjects, time.Now(), baseProjectId, projectProvider)
 }
 
 // getProjectsForRequest internal version of GetProjectsForRequest for testing (no time.Now or random stuff)
 // function only used for testing (with injected now), normal usage should go through the struct member function
-func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Duration, maxProjId int,
-	now time.Time, randomBaseProjectId int) []int {
+func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Duration, maxNumProjects int,
+	now time.Time, baseProjectId string, provider utils.ProjectProvider) []string {
+
 	if vr == nil {
 		panic("nil virtual Relay")
 	}
@@ -199,7 +205,7 @@ func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Du
 	vr.cleanExpiredProjects(expiryTime, now)
 
 	// expected number of projects
-	retVal := make([]int, 0, numProjects)
+	retVal := make([]string, 0, numProjects)
 
 	// first add to the request the pending projects (maybe they have been resolved)
 	for k := range vr.pendingProjects {
@@ -210,32 +216,35 @@ func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Du
 		}
 	}
 
-	for idx := 0; idx < maxProjId; idx++ {
-		projectId := (idx+randomBaseProjectId)%maxProjId + 1
+	firstSuggestion := provider.GetNextProjectId(maxNumProjects, baseProjectId)
+	projectId := firstSuggestion
+	for len(retVal) < numProjects {
+		//check the suggestion is not already in the list or in the cached projects
 		if _, ok := vr.pendingProjects[projectId]; !ok {
 			if _, ok := vr.cachedProjects[projectId]; !ok {
 				// project id not pending and not in cache we can use it
 				retVal = append(retVal, projectId)
-				//we have enough projects for our request
-				if len(retVal) == numProjects {
-					return retVal
-				}
 			}
 		}
+		projectId = provider.GetNextProjectId(maxNumProjects, projectId)
+		if projectId == firstSuggestion {
+			//we have looped around the list, we can't find enough projects, return what we have
+			return retVal
+		}
 	}
-	//return what we have (probably not enough project ids)
+	//we have enough projects for our request
 	return retVal
 }
 
 // UpdateProjectStates updates the project states with the result from a getProjects response
-func (vr *virtualRelay) UpdateProjectStates(pendingProjects []int, resolvedProjects []int) {
+func (vr *virtualRelay) UpdateProjectStates(pendingProjects []string, resolvedProjects []string) {
 	updateProjectStates(vr, pendingProjects, resolvedProjects, time.Now())
 }
 
 // updateProjectStates updates the list of cached projects setting their refresh date to now
 // if the projects were already cached the old values are removed and the new values are inserted
 // function only used for testing (with injected now), normal usage should go through the struct member function
-func updateProjectStates(vr *virtualRelay, pendingProjects []int, resolvedProjects []int, now time.Time) {
+func updateProjectStates(vr *virtualRelay, pendingProjects []string, resolvedProjects []string, now time.Time) {
 	if vr == nil {
 		panic("nil virtual Relay")
 	}
