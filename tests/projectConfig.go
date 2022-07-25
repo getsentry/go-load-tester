@@ -2,16 +2,21 @@ package tests
 
 import (
 	"container/list"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/getsentry/go-load-tester/utils"
-	"github.com/rs/zerolog/log"
-	vegeta "github.com/tsenart/vegeta/lib"
+	"math/rand"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
+
+	"github.com/getsentry/go-load-tester/utils"
 )
 
 // ProjectConfigJob is how a projectConfigJob is parametrize
@@ -30,6 +35,12 @@ type ProjectConfigJob struct {
 	ProjectsInvalidated int
 	// InvalidatedPer is the unit of duration in which to invalidate ProjectsInvalidated
 	InvalidatedPer time.Duration
+	// RelayPublicKey public key for Relay authentication
+	RelayPublicKey string
+	// RelayPrivateKey private key for Relay authentication
+	RelayPrivateKey string
+	// RelayId is the id of the Relay used for authentication
+	RelayId string
 }
 
 // projectConfigLoadTester defines the state data during a ProjectConfiguration load test
@@ -40,10 +51,12 @@ type projectConfigLoadTester struct {
 	config ProjectConfigJob
 	// virtual relays used in the attack
 	relays []virtualRelay
-	// index of the next virtual Relay to be used in the attack
-	nextRelayIdx int
+	// keeps a request sequence (to figure out what relay was used)
+	reqSequence uint64
 	// lock to be used when manipulating projectConfigLoadTester (specifically nextRelayIdx)
 	lock sync.Mutex
+	// relayPrivateKey is the private key used to sign the request
+	relayPrivateKey ed25519.PrivateKey
 }
 
 // represents a project id together with the last update date
@@ -66,17 +79,24 @@ type virtualRelay struct {
 	lock sync.Mutex
 }
 
+// projectConfigResponse represents the response from a getProjects request
+type projectConfigResponse struct {
+	Pending []string                   `json:"pending"`
+	Configs map[string]json.RawMessage `json:"configs"`
+}
+
 func newProjectConfigLoadTester(url string, rawProjectConfigParams json.RawMessage) *projectConfigLoadTester {
 	var projectConfigParams ProjectConfigJob
 	err := json.Unmarshal(rawProjectConfigParams, &projectConfigParams)
 	if err != nil {
 		log.Error().Err(err).Msgf("error unmarshalling projectConfigJob \nraw data\n%s", rawProjectConfigParams)
 	}
-	return projectConfigLoadTesterFromJob(projectConfigParams)
+	return projectConfigLoadTesterFromJob(projectConfigParams, url)
 }
 
-func projectConfigLoadTesterFromJob(job ProjectConfigJob) *projectConfigLoadTester {
+func projectConfigLoadTesterFromJob(job ProjectConfigJob, url string) *projectConfigLoadTester {
 	var retVal = &projectConfigLoadTester{
+		url:    url,
 		config: job,
 		relays: make([]virtualRelay, job.NumRelays),
 	}
@@ -88,34 +108,121 @@ func projectConfigLoadTesterFromJob(job ProjectConfigJob) *projectConfigLoadTest
 	return retVal
 }
 
-// TODO
-func (lt *projectConfigLoadTester) GetTargeter() vegeta.Targeter {
+type projectConfigRequest struct {
+	PublicKeys []string `json:"publicKeys"`
+	FullConfig bool     `json:"fullConfig"`
+	NoCache    *bool    `json:"noCache,omitempty"` // not used yet
+}
+
+func (lt *projectConfigLoadTester) GetRelayPrivateKey() (ed25519.PrivateKey, error) {
+	lt.lock.Lock()
+	defer lt.lock.Unlock()
+	if lt.relayPrivateKey != nil {
+		return lt.relayPrivateKey, nil
+	} else {
+		var privateKey, err = utils.PrivateKeyFromString(lt.config.RelayPublicKey, lt.config.RelayPrivateKey)
+		lt.relayPrivateKey = privateKey
+		return privateKey, err
+	}
+}
+
+func (lt *projectConfigLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
+
+	var privateKey, pkError = lt.GetRelayPrivateKey()
+	var reqSequence = lt.GetRequestSequence()
+
 	return func(target *vegeta.Target) error {
 		if target == nil {
 			return vegeta.ErrNilTarget
 		}
-		/*
-			config := lt.config
-			target.Method = "POST"
 
-			relay, err := lt.GetNextRelay()
+		if pkError != nil {
+			return pkError
+		}
 
-			if err != nil {
-				log.Error().Err(err).Msg("Could not get virtual relay")
-				return err
-			}
+		var relay, err = lt.RelayFromSequence(reqSequence)
 
-			//TODO redo virtual relay to work with the ProjectProvider
-			relay.GetProjectsForRequest(config.NumProjects, config.BatchInterval, 111)
-		*/
-		//TODO finish here
+		if err != nil {
+			log.Error().Err(err).Msg("error getting relay")
+			return err
+		}
+
+		config := lt.config
+		target.Method = "POST"
+
+		url := lt.url
+		if !strings.HasSuffix(url, "/") {
+			url += "/"
+		}
+		url += "api/0/relays/projectconfigs/?version=3"
+
+		if err != nil {
+			log.Error().Err(err).Msg("Could not get virtual relay")
+			return err
+		}
+
+		batchSize := config.MinBatchSize + rand.Intn(config.MaxBatchSize-config.MinBatchSize)
+
+		projectProvider := utils.GetProjectProvider()
+		projectIds := relay.GetProjectsForRequest(batchSize, config.BatchInterval, config.NumProjects, projectProvider)
+
+		if len(projectIds) == 0 {
+			return errors.New("no projects available for virtual relay")
+		}
+
+		projectKeys := make([]string, len(projectIds))
+		for _, projectId := range projectIds {
+			projectKey := projectProvider.GetProjectKey(projectId)
+			projectKeys = append(projectKeys, projectKey)
+		}
+
+		req := projectConfigRequest{
+			PublicKeys: projectKeys,
+			FullConfig: true,
+		}
+		body, err := json.Marshal(req)
+		if err != nil {
+			log.Error().Err(err).Msg("Could not marshal project config request")
+			return err
+		}
+
+		now := time.Now().UTC()
+		signature, err := utils.RelayAuthSign(privateKey, body, now)
+		if err != nil {
+			log.Error().Err(err).Msg("Could not sign request")
+			return err
+		}
+
+		target.Header = make(http.Header)
+		target.Header.Set("Content-Type", "application/json")
+		target.Header.Set("X-Sentry-Relay-Signature", signature)
+		target.Header.Set("X-Sentry-Relay-Id", config.RelayId)
+		target.Body = body
 		return nil
-	}
+	}, reqSequence
 }
 
-// TODO
-func (lt *projectConfigLoadTester) ProcessResult(result *vegeta.Result) {
-	return
+func (lt *projectConfigLoadTester) ProcessResult(result *vegeta.Result, seq uint64) {
+	var relay, err = lt.RelayFromSequence(seq)
+	if err != nil {
+		log.Error().Err(err).Msg("error getting relay")
+		return
+	}
+
+	var configResponse projectConfigResponse
+	err = json.Unmarshal(result.Body, &configResponse)
+	if err != nil {
+		log.Error().Err(err).Msg("error unmarshalling projectConfigResponse")
+		return
+	}
+
+	// get all resolvedProjects from configResponse.Configs
+	var resolvedProjects = make([]string, 0, len(configResponse.Configs))
+	for k := range configResponse.Configs {
+		resolvedProjects = append(resolvedProjects, k)
+	}
+	relay.UpdateProjectStates(configResponse.Pending, resolvedProjects)
+
 }
 
 // projectConfigLoadSplitter divides the load for each worker by:
@@ -151,7 +258,15 @@ func projectConfigLoadSplitter(masterParams TestParams, numWorkers int) ([]TestP
 	return retVal, nil
 }
 
-func (lt *projectConfigLoadTester) GetNextRelay() (*virtualRelay, error) {
+func (lt *projectConfigLoadTester) GetRequestSequence() uint64 {
+
+	lt.lock.Lock()
+	defer lt.lock.Unlock()
+	lt.reqSequence++
+	return lt.reqSequence
+}
+
+func (lt *projectConfigLoadTester) RelayFromSequence(sequence uint64) (*virtualRelay, error) {
 	if lt == nil {
 		panic("null projectConfig Run")
 	}
@@ -162,11 +277,7 @@ func (lt *projectConfigLoadTester) GetNextRelay() (*virtualRelay, error) {
 	lt.lock.Lock()
 	defer lt.lock.Unlock()
 
-	retVal := &lt.relays[lt.nextRelayIdx]
-
-	lt.nextRelayIdx = (lt.nextRelayIdx + 1) % len(lt.relays)
-
-	return retVal, nil
+	return &lt.relays[sequence%uint64(len(lt.relays))], nil
 }
 
 func (vr *virtualRelay) InitVirtualRelay() {
@@ -201,7 +312,7 @@ func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Du
 	vr.lock.Lock()
 	defer vr.lock.Unlock()
 
-	//cleanup expired projects (they can be queried again)
+	// cleanup expired projects (they can be queried again)
 	vr.cleanExpiredProjects(expiryTime, now)
 
 	// expected number of projects
@@ -211,7 +322,7 @@ func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Du
 	for k := range vr.pendingProjects {
 		retVal = append(retVal, k)
 		if len(retVal) == numProjects {
-			//enough projects for our request
+			// enough projects for our request
 			return retVal
 		}
 	}
@@ -219,7 +330,7 @@ func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Du
 	firstSuggestion := provider.GetNextProjectId(maxNumProjects, baseProjectId)
 	projectId := firstSuggestion
 	for len(retVal) < numProjects {
-		//check the suggestion is not already in the list or in the cached projects
+		// check the suggestion is not already in the list or in the cached projects
 		if _, ok := vr.pendingProjects[projectId]; !ok {
 			if _, ok := vr.cachedProjects[projectId]; !ok {
 				// project id not pending and not in cache we can use it
@@ -228,11 +339,11 @@ func getProjectsForRequest(vr *virtualRelay, numProjects int, expiryTime time.Du
 		}
 		projectId = provider.GetNextProjectId(maxNumProjects, projectId)
 		if projectId == firstSuggestion {
-			//we have looped around the list, we can't find enough projects, return what we have
+			// we have looped around the list, we can't find enough projects, return what we have
 			return retVal
 		}
 	}
-	//we have enough projects for our request
+	// we have enough projects for our request
 	return retVal
 }
 
@@ -293,6 +404,8 @@ type projectConfigJobRaw struct {
 	BatchInterval       string `json:"batchInterval" yaml:"batchInterval"`
 	ProjectsInvalidated int    `json:"projectsInvalidated" yaml:"projectsInvalidated"`
 	InvalidatedPer      string `json:"invalidatedPer" yaml:"invalidatedPer"`
+	RelayPublicKey      string `json:"relayPublicKey" yaml:"relayPublicKey"`
+	RelayPrivateKey     string `json:"relayPrivateKey" yaml:"relayPrivateKey"`
 }
 
 func (pc projectConfigJobRaw) into(result *ProjectConfigJob) error {
@@ -300,6 +413,8 @@ func (pc projectConfigJobRaw) into(result *ProjectConfigJob) error {
 	result.MinBatchSize = pc.MinBatchSize
 	result.MaxBatchSize = pc.MaxBatchSize
 	result.ProjectsInvalidated = pc.ProjectsInvalidated
+	result.RelayPublicKey = pc.RelayPublicKey
+	result.RelayPrivateKey = pc.RelayPrivateKey
 
 	if len(pc.BatchInterval) >= 0 {
 		batchInterval, err := time.ParseDuration(pc.BatchInterval)
@@ -326,6 +441,8 @@ func (pcj ProjectConfigJob) intoRaw() projectConfigJobRaw {
 		BatchInterval:       pcj.BatchInterval.String(),
 		ProjectsInvalidated: pcj.ProjectsInvalidated,
 		InvalidatedPer:      pcj.InvalidatedPer.String(),
+		RelayPublicKey:      pcj.RelayPublicKey,
+		RelayPrivateKey:     pcj.RelayPrivateKey,
 	}
 }
 

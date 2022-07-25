@@ -72,7 +72,7 @@ func newTransactionLoadTester(url string, rawTransaction json.RawMessage) LoadTe
 	}
 }
 
-func (tlt *transactionLoadTester) GetTargeter() vegeta.Targeter {
+func (tlt *transactionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -110,10 +110,10 @@ func (tlt *transactionLoadTester) GetTargeter() vegeta.Targeter {
 		tgt.Body = buff.Bytes()
 		log.Trace().Msg("Attacking")
 		return nil
-	}
+	}, 0
 }
 
-func (tlt *transactionLoadTester) ProcessResult(_ *vegeta.Result) {
+func (tlt *transactionLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {
 	return // nothing to do
 }
 

@@ -33,7 +33,7 @@ func TestRelayAuthSign(t *testing.T) {
 }
 
 // TestAuthFunctionality is a pseudo test that breaks the signing functionality into pieces
-// so that it can be checked against Relay (do not remove).
+// so that it can be checked against Relay (DO NOT DELETE).
 func TestAuthFunctionality(t *testing.T) {
 	fmt.Println("Go sign test")
 	var pkString = "ftFuDNBFm8-kPCoCaaWMio_mJYC2txJuCtwSeHn2vv0"
@@ -94,7 +94,7 @@ func TestAuthFunctionality(t *testing.T) {
 }
 
 /*
-// Equivalent Rust test, please don't delete.
+// Equivalent Rust test, please DO NOT DELETE.
 use std::str;
 #[test]
 fn test_relay_auth_signature_generation() {

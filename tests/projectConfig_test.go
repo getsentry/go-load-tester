@@ -1,13 +1,15 @@
 package tests
 
 import (
-	"github.com/getsentry/go-load-tester/utils"
-	"github.com/google/go-cmp/cmp"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+
+	"github.com/getsentry/go-load-tester/utils"
 )
 
-//getNow returns a time that is always the same
+// getNow returns a time that is always the same
 func getNow() time.Time {
 	return time.Date(2010, 1, 12, 10, 0, 0, 0, time.UTC)
 }
@@ -15,14 +17,23 @@ func getNow() time.Time {
 func TestGetNextRelay(t *testing.T) {
 	numRelays := 7
 	numProjects := 100
-	run := projectConfigLoadTesterFromJob(ProjectConfigJob{NumRelays: numRelays, NumProjects: numProjects})
+	run := projectConfigLoadTesterFromJob(ProjectConfigJob{NumRelays: numRelays, NumProjects: numProjects}, "the-url")
+	var lastSeq uint64 = 0
 	for idx := 0; idx < 500; idx++ {
-		//test that we iterate round-robin through the available relays
-		relay, err := run.GetNextRelay()
+		// test that we iterate round-robin through the available relays
+		seq := run.GetRequestSequence()
+		if lastSeq != 0 {
+			if seq != lastSeq+1 {
+				t.Errorf("expected sequence %d but found %d", lastSeq+1, seq)
+			}
+		}
+		lastSeq = seq
+		relay, err := run.RelayFromSequence(seq)
 		if err != nil {
 			t.Errorf("failed to get next relay on loop %d", idx)
 		}
-		if relay != &run.relays[idx%numRelays] {
+		intSeq := int(seq)
+		if relay != &run.relays[intSeq%numRelays] {
 			t.Errorf("unexpected relay returned and loop %d", idx)
 		}
 	}
@@ -88,7 +99,7 @@ func TestGetProjectsForRequestPendingConfigs(t *testing.T) {
 		}
 		response := getProjectsForRequest(vr, numProjects, expiryTime, maxProjectId, now, testCase.base, projectProvider)
 
-		//check that the first entries are taken from the pending
+		// check that the first entries are taken from the pending
 		pending := utils.Min(len(testCase.pendingRequests), numProjects)
 
 		for idx := 0; idx < pending; idx++ {
@@ -97,7 +108,7 @@ func TestGetProjectsForRequestPendingConfigs(t *testing.T) {
 			}
 		}
 
-		//check that if there are any entries left they are taken in order from base upward
+		// check that if there are any entries left they are taken in order from base upward
 		rest := response[pending:]
 
 		if diff := cmp.Diff(rest, testCase.newExpected); diff != "" {

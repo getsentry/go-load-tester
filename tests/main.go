@@ -56,10 +56,10 @@ type LoadTester interface {
 	// GetTargeter will be called by the worker at the beginning of an attack in order to
 	// create a targeter for the particular TestParams passed. This Targeter will be used
 	// during the attack to construct requests (this function will be called once per attack)
-	GetTargeter() vegeta.Targeter
+	GetTargeter() (vegeta.Targeter, uint64)
 	// ProcessResult will be called by the worker during an attack for each Result returned by the system
 	// under test. If you don't care about the results returned just provide an empty implementation.
-	ProcessResult(res *vegeta.Result)
+	ProcessResult(res *vegeta.Result, seq uint64)
 }
 
 // SimpleLoadSplitter implements the typical case of load splitting, where there needs to be no special
