@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func createTestProjectInfoFile() error {
+func createTestProjectInfoFile() (string, error) {
 	data := `
 {
 	"11": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1","access_token":"abc1"},
@@ -15,32 +15,33 @@ func createTestProjectInfoFile() error {
 	"14": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","access_token":"abc4"}
 }
 `
-	f, err := os.Create("projectInfo.json")
+	f, err := os.CreateTemp("", "projectInfo-*.json")
+
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer func() { _ = f.Close() }()
 
 	_, err = f.WriteString(data)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return f.Name(), nil
 }
 
-func deleteTestProjectInfoFile() {
-	_ = os.Remove("projectInfo.json")
+func deleteTestProjectInfoFile(fileName string) {
+	_ = os.Remove(fileName)
 }
 
 func getProjectProviderUtil(t *testing.T) *FileProjectProvider {
-	err := createTestProjectInfoFile()
+	fileName, err := createTestProjectInfoFile()
 	if err != nil {
 		t.Fatal(err)
 		return nil
 	}
-	defer deleteTestProjectInfoFile()
+	defer deleteTestProjectInfoFile(fileName)
 
-	provider, err := LoadFileProjectProvider("projectInfo.json")
+	provider, err := LoadFileProjectProvider(fileName)
 	if err != nil {
 		t.Fatal(err)
 		return nil
