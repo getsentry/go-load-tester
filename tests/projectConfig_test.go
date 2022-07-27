@@ -17,11 +17,11 @@ func getNow() time.Time {
 func TestGetNextRelay(t *testing.T) {
 	numRelays := 7
 	numProjects := 100
-	run := projectConfigLoadTesterFromJob(ProjectConfigJob{NumRelays: numRelays, NumProjects: numProjects}, "the-url")
+	run := projectConfigLoadTesterFromJob(ProjectConfigJob{NumRelays: numRelays, NumProjects: numProjects, ProjectInvalidationRatio: 0.0001}, "the-url")
 	var lastSeq uint64 = 0
 	for idx := 0; idx < 500; idx++ {
 		// test that we iterate round-robin through the available relays
-		seq := run.GetRequestSequence()
+		seq, _ := run.GetRequestSequence()
 		if lastSeq != 0 {
 			if seq != lastSeq+1 {
 				t.Errorf("expected sequence %d but found %d", lastSeq+1, seq)

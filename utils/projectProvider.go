@@ -3,12 +3,13 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 // ProjectProvider can be used to get project Ids and keys for testing
@@ -19,8 +20,7 @@ type ProjectProvider interface {
 	GetProjectId(maxProjects int) string
 	// GetNextProjectId returns the next project id given the last used project id
 	GetNextProjectId(maxProjects int, currentProjectId string) string
-	GetProjectKey(projectId string) string
-	GetApiKey(projectId string) string
+	GetProjectInfo(projectId string) ProjectInfo
 }
 
 var projectProvider ProjectProvider
@@ -45,23 +45,27 @@ func (provider RandomProjectProvider) GetNextProjectId(maxProjects int, currentP
 	return fmt.Sprintf("%d", currentProjectIdInt%maxProjects+1)
 }
 
-func (provider RandomProjectProvider) GetProjectKey(projectId string) string {
+func (provider RandomProjectProvider) GetProjectInfo(projectId string) ProjectInfo {
 	tmp := fmt.Sprintf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%s", projectId)
-	return tmp[len(tmp)-32:]
+	tmp = tmp[len(tmp)-32:]
+	return ProjectInfo{
+		ProjectId:        projectId,
+		ProjectKey:       tmp,
+		ProjectSlug:      fmt.Sprintf("project-%s", projectId),
+		OrganizationSlug: fmt.Sprintf("organization-%s", projectId),
+	}
 }
 
-func (provider RandomProjectProvider) GetApiKey(projectId string) string {
-	return ""
-}
-
-type projectInfo struct {
-	ProjectId     string `json:"project_id,omitempty"`
-	ProjectKey    string `json:"project_key"`
-	ProjectApiKey string `json:"access_token,omitempty"`
+type ProjectInfo struct {
+	ProjectId        string `json:"project_id,omitempty"`
+	ProjectKey       string `json:"project_key"`
+	ProjectApiKey    string `json:"access_token,omitempty"`
+	ProjectSlug      string `json:"project_slug,omitempty"`
+	OrganizationSlug string `json:"organization_slug,omitempty"`
 }
 
 type FileProjectProvider struct {
-	projectInfo   map[string]projectInfo
+	projectInfo   map[string]ProjectInfo
 	nextProjectId map[string]string
 	projectIds    []string
 }
@@ -75,12 +79,8 @@ func (provider FileProjectProvider) GetProjectId(maxProjects int) string {
 	return provider.projectIds[idx]
 }
 
-func (provider FileProjectProvider) GetProjectKey(projectId string) string {
-	return provider.projectInfo[projectId].ProjectKey
-}
-
-func (provider FileProjectProvider) GetApiKey(projectId string) string {
-	return provider.projectInfo[projectId].ProjectApiKey
+func (provider FileProjectProvider) GetProjectInfo(projectId string) ProjectInfo {
+	return provider.projectInfo[projectId]
 }
 
 func (provider FileProjectProvider) GetNextProjectId(maxProjects int, currentProjectId string) string {
@@ -104,7 +104,7 @@ func LoadFileProjectProvider(filePath string) (*FileProjectProvider, error) {
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	var projectInfos map[string]projectInfo
+	var projectInfos map[string]ProjectInfo
 	err = json.Unmarshal([]byte(byteValue), &projectInfos)
 	if err != nil {
 		log.Err(err).Msg("Failed to parse project file")
@@ -114,7 +114,7 @@ func LoadFileProjectProvider(filePath string) (*FileProjectProvider, error) {
 	var projectIds = make([]string, 0, len(projectInfos))
 	var nextProjectIdMap = make(map[string]string)
 
-	//consolidate project info ( the projectInfos were not deserialize)
+	// consolidate project info ( the projectInfos were not deserialize)
 	previousProjectId := ""
 	for projId, projInfo := range projectInfos {
 		projInfo.ProjectId = projId

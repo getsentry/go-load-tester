@@ -31,10 +31,8 @@ type ProjectConfigJob struct {
 	MaxBatchSize int
 	// BatchInterval is the duration of validity of a project config
 	BatchInterval time.Duration
-	// ProjectsInvalidated externally invalidated per second (calls to project details to invalidate the project config)
-	ProjectsInvalidated int
-	// InvalidatedPer is the unit of duration in which to invalidate ProjectsInvalidated
-	InvalidatedPer time.Duration
+	// The ratio from the number of requests that are invalidation requests (should be between 0 and 1).
+	ProjectInvalidationRatio float64
 	// RelayPublicKey public key for Relay authentication
 	RelayPublicKey string
 	// RelayPrivateKey private key for Relay authentication
@@ -42,6 +40,13 @@ type ProjectConfigJob struct {
 	// RelayId is the id of the Relay used for authentication
 	RelayId string
 }
+
+type requestType int
+
+const (
+	ProjectConfigRequest     requestType = 0
+	InvalidateProjectRequest requestType = 1
+)
 
 // projectConfigLoadTester defines the state data during a ProjectConfiguration load test
 type projectConfigLoadTester struct {
@@ -53,6 +58,8 @@ type projectConfigLoadTester struct {
 	relays []virtualRelay
 	// keeps a request sequence (to figure out what relay was used)
 	reqSequence uint64
+	// keeps a count of how many invalidation requests were sent
+	invalidationRequestsSent uint64
 	// lock to be used when manipulating projectConfigLoadTester (specifically nextRelayIdx)
 	lock sync.Mutex
 	// relayPrivateKey is the private key used to sign the request
@@ -129,9 +136,33 @@ func (lt *projectConfigLoadTester) GetRelayPrivateKey() (ed25519.PrivateKey, err
 func (lt *projectConfigLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 	var privateKey, pkError = lt.GetRelayPrivateKey()
-	var reqSequence = lt.GetRequestSequence()
+	var reqSequence, reqType = lt.GetRequestSequence()
 
-	return func(target *vegeta.Target) error {
+	getInvalidationRequest := func(target *vegeta.Target) error {
+
+		projectProvider := utils.GetProjectProvider()
+		numProjects := projectProvider.GetNumberOfProjects()
+		projectId := projectProvider.GetProjectId(numProjects)
+		projectInfo := projectProvider.GetProjectInfo(projectId)
+		apiKey := projectInfo.ProjectApiKey
+		orgSlug := projectInfo.OrganizationSlug
+		projSlug := projectInfo.ProjectSlug
+
+		authHeader := fmt.Sprintf(" Bearer %s", apiKey)
+		target.Header = make(http.Header)
+		target.Header.Set("Content-Type", "application/json")
+		target.Header.Set("Authorization", authHeader)
+
+		target.Method = "POST"
+		target.URL = fmt.Sprintf("%s/api/0/projects/%s/%s/", lt.url, orgSlug, projSlug)
+
+		// generate a unique change in the project config in order to invalidate it
+		body := fmt.Sprintf(`{"safeFields": ["x-%d"]}`, reqSequence)
+		target.Body = []byte(body)
+		return nil
+	}
+
+	getProjectRequest := func(target *vegeta.Target) error {
 		if target == nil {
 			return vegeta.ErrNilTarget
 		}
@@ -172,7 +203,8 @@ func (lt *projectConfigLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 		projectKeys := make([]string, len(projectIds))
 		for _, projectId := range projectIds {
-			projectKey := projectProvider.GetProjectKey(projectId)
+			projectInfo := projectProvider.GetProjectInfo(projectId)
+			projectKey := projectInfo.ProjectKey
 			projectKeys = append(projectKeys, projectKey)
 		}
 
@@ -199,7 +231,14 @@ func (lt *projectConfigLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 		target.Header.Set("X-Sentry-Relay-Id", config.RelayId)
 		target.Body = body
 		return nil
-	}, reqSequence
+	}
+
+	switch reqType {
+	case InvalidateProjectRequest:
+		return getInvalidationRequest, reqSequence
+	default:
+		return getProjectRequest, reqSequence
+	}
 }
 
 func (lt *projectConfigLoadTester) ProcessResult(result *vegeta.Result, seq uint64) {
@@ -212,7 +251,7 @@ func (lt *projectConfigLoadTester) ProcessResult(result *vegeta.Result, seq uint
 	var configResponse projectConfigResponse
 	err = json.Unmarshal(result.Body, &configResponse)
 	if err != nil {
-		log.Error().Err(err).Msg("error unmarshalling projectConfigResponse")
+		// it's probably a project invalidation response (don't bother with it)
 		return
 	}
 
@@ -247,7 +286,6 @@ func projectConfigLoadSplitter(masterParams TestParams, numWorkers int) ([]TestP
 		log.Error().Err(err).Msg("error splitting the number of relays among workers")
 		return nil, err
 	}
-	projConfigJob.InvalidatedPer = projConfigJob.InvalidatedPer * time.Duration(numWorkers)
 	retVal := make([]TestParams, 0, numWorkers)
 	for idx := 0; idx < numWorkers; idx++ {
 		// distribute the relays among the workers
@@ -258,12 +296,17 @@ func projectConfigLoadSplitter(masterParams TestParams, numWorkers int) ([]TestP
 	return retVal, nil
 }
 
-func (lt *projectConfigLoadTester) GetRequestSequence() uint64 {
+func (lt *projectConfigLoadTester) GetRequestSequence() (uint64, requestType) {
 
 	lt.lock.Lock()
 	defer lt.lock.Unlock()
 	lt.reqSequence++
-	return lt.reqSequence
+	if float64(lt.reqSequence)*lt.config.ProjectInvalidationRatio > float64(lt.invalidationRequestsSent) {
+		// we are falling behind with invalidation requests send one now.
+		lt.invalidationRequestsSent++
+		return lt.reqSequence, InvalidateProjectRequest
+	}
+	return lt.reqSequence, ProjectConfigRequest
 }
 
 func (lt *projectConfigLoadTester) RelayFromSequence(sequence uint64) (*virtualRelay, error) {
@@ -398,23 +441,26 @@ func (vr *virtualRelay) cleanExpiredProjects(expiryTime time.Duration, now time.
 }
 
 type projectConfigJobRaw struct {
-	NumRelays           int    `json:"numRelays" yaml:"numRelays"`
-	MinBatchSize        int    `json:"minBatchSize" yaml:"minBatchSize"`
-	MaxBatchSize        int    `json:"maxBatchSize" yaml:"maxBatchSize"`
-	BatchInterval       string `json:"batchInterval" yaml:"batchInterval"`
-	ProjectsInvalidated int    `json:"projectsInvalidated" yaml:"projectsInvalidated"`
-	InvalidatedPer      string `json:"invalidatedPer" yaml:"invalidatedPer"`
-	RelayPublicKey      string `json:"relayPublicKey" yaml:"relayPublicKey"`
-	RelayPrivateKey     string `json:"relayPrivateKey" yaml:"relayPrivateKey"`
+	NumRelays                int     `json:"numRelays" yaml:"numRelays"`
+	NumProjects              int     `json:"numProjects" yaml:"numProjects"`
+	MinBatchSize             int     `json:"minBatchSize" yaml:"minBatchSize"`
+	MaxBatchSize             int     `json:"maxBatchSize" yaml:"maxBatchSize"`
+	BatchInterval            string  `json:"batchInterval" yaml:"batchInterval"`
+	ProjectInvalidationRatio float64 `json:"projectInvalidationRatio" yaml:"projectInvalidationRatio"`
+	RelayPublicKey           string  `json:"relayPublicKey" yaml:"relayPublicKey"`
+	RelayPrivateKey          string  `json:"relayPrivateKey" yaml:"relayPrivateKey"`
+	RelayId                  string  `json:"relayId" yaml:"relayId"`
 }
 
 func (pc projectConfigJobRaw) into(result *ProjectConfigJob) error {
 	result.NumRelays = pc.NumRelays
+	result.NumProjects = pc.NumProjects
 	result.MinBatchSize = pc.MinBatchSize
 	result.MaxBatchSize = pc.MaxBatchSize
-	result.ProjectsInvalidated = pc.ProjectsInvalidated
+	result.ProjectInvalidationRatio = pc.ProjectInvalidationRatio
 	result.RelayPublicKey = pc.RelayPublicKey
 	result.RelayPrivateKey = pc.RelayPrivateKey
+	result.RelayId = pc.RelayId
 
 	if len(pc.BatchInterval) >= 0 {
 		batchInterval, err := time.ParseDuration(pc.BatchInterval)
@@ -423,26 +469,20 @@ func (pc projectConfigJobRaw) into(result *ProjectConfigJob) error {
 		}
 		result.BatchInterval = batchInterval
 	}
-	if len(pc.InvalidatedPer) >= 0 {
-		per, err := time.ParseDuration(pc.InvalidatedPer)
-		if err != nil {
-			return err
-		}
-		result.InvalidatedPer = per
-	}
 	return nil
 }
 
 func (pcj ProjectConfigJob) intoRaw() projectConfigJobRaw {
 	return projectConfigJobRaw{
-		NumRelays:           pcj.NumRelays,
-		MinBatchSize:        pcj.MinBatchSize,
-		MaxBatchSize:        pcj.MaxBatchSize,
-		BatchInterval:       pcj.BatchInterval.String(),
-		ProjectsInvalidated: pcj.ProjectsInvalidated,
-		InvalidatedPer:      pcj.InvalidatedPer.String(),
-		RelayPublicKey:      pcj.RelayPublicKey,
-		RelayPrivateKey:     pcj.RelayPrivateKey,
+		NumRelays:                pcj.NumRelays,
+		NumProjects:              pcj.NumProjects,
+		MinBatchSize:             pcj.MinBatchSize,
+		MaxBatchSize:             pcj.MaxBatchSize,
+		BatchInterval:            pcj.BatchInterval.String(),
+		ProjectInvalidationRatio: pcj.ProjectInvalidationRatio,
+		RelayPublicKey:           pcj.RelayPublicKey,
+		RelayPrivateKey:          pcj.RelayPrivateKey,
+		RelayId:                  pcj.RelayId,
 	}
 }
 

@@ -9,13 +9,13 @@ import (
 func createTestProjectInfoFile() (string, error) {
 	data := `
 {
-	"11": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1","access_token":"abc1"},
-	"12": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2","access_token":"abc2"},
-	"13": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3","access_token":"abc3"},
-	"14": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","access_token":"abc4"}
+	"11": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1","access_token":"abc1", "project_slug": "proj-11", "organization_slug": "org-11"},
+	"12": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2","access_token":"abc2", "project_slug": "proj-12", "organization_slug": "org-12"},
+	"13": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3","access_token":"abc3", "project_slug": "proj-13", "organization_slug": "org-13"},
+	"14": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","access_token":"abc4", "project_slug": "proj-14", "organization_slug": "org-14"}
 }
 `
-	f, err := os.CreateTemp("", "projectInfo-*.json")
+	f, err := os.CreateTemp("", "ProjectInfo-*.json")
 
 	if err != nil {
 		return "", err
@@ -60,8 +60,9 @@ func TestFileProjectProviderRandomAccess(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		projectId := provider.GetProjectId(7)
-		key := provider.GetProjectKey(projectId)
-		accessToken := provider.GetApiKey(projectId)
+		projInfo := provider.GetProjectInfo(projectId)
+		key := projInfo.ProjectKey
+		accessToken := projInfo.ProjectApiKey
 		switch projectId {
 		case "11":
 			if key != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1" || accessToken != "abc1" {
