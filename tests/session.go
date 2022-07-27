@@ -72,7 +72,7 @@ func newSessionLoadTester(url string, rawSessionParams json.RawMessage) LoadTest
 	}
 }
 
-func (slt *sessionLoadTester) GetTargeter() vegeta.Targeter {
+func (slt *sessionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -97,10 +97,10 @@ func (slt *sessionLoadTester) GetTargeter() vegeta.Targeter {
 		tgt.Body = body
 		log.Trace().Msg("Attacking")
 		return nil
-	}
+	}, 0
 }
 
-func (slt *sessionLoadTester) ProcessResult(_ *vegeta.Result) {
+func (slt *sessionLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {
 	return // nothing to do
 }
 

@@ -107,7 +107,7 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdA
 	engine.POST("/command/", withParamChannel(paramChannel, workerCommandHandler))
 	engine.GET("/ping", pingHandler)
 	engine.POST("/ping", pingHandler)
-	//if working with master first wait to register
+	// if working with master first wait to register
 	config, err := registerWithMaster(port, masterUrl)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register with master, worker stopping")
@@ -214,7 +214,7 @@ func withParamChannel(paramsChannel chan<- tests.TestParams, handler handlerWith
 }
 
 func pingHandler(ctx *gin.Context) {
-	//just reply with a 200
+	// just reply with a 200
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -236,9 +236,9 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 
 }
 
-// createTargeter creates a targeter for the passed test parameters
-func createTargeter(targetUrl string, params tests.TestParams) tests.LoadTester {
-	log.Trace().Msgf("Creating targeter:%v", params)
+// createLoadTester creates a loadTester for the passed test parameters
+func createLoadTester(targetUrl string, params tests.TestParams) tests.LoadTester {
+	log.Trace().Msgf("Creating load tester:%v", params)
 	if params.AttackDuration == 0 {
 		// an attack with 0 duration is a stop request
 		log.Info().Msg("Stop command received")
@@ -261,11 +261,11 @@ func createTargeter(targetUrl string, params tests.TestParams) tests.LoadTester 
 func worker(targetUrl string, statsdAddr string, configParams *configParams, paramsChan <-chan tests.TestParams) {
 
 	if configParams != nil && len(configParams.StatsdServerUrl) > 0 {
-		//override configuration with master statsdUrl
+		// override configuration with master statsdUrl
 		statsdAddr = configParams.StatsdServerUrl
 	}
 	if configParams != nil && len(configParams.TargetUrl) > 0 {
-		//override configuration with master targetUrl
+		// override configuration with master targetUrl
 		targetUrl = configParams.TargetUrl
 	}
 	log.Info().Msgf("Worker started targetUrl=%s, statsdAddr=%s", targetUrl, statsdAddr)
@@ -277,21 +277,23 @@ func worker(targetUrl string, statsdAddr string, configParams *configParams, par
 	attack:
 		select {
 		case params = <-paramsChan:
-			loadTester = createTargeter(targetUrl, params)
+			loadTester = createLoadTester(targetUrl, params)
 		default:
 			if loadTester != nil {
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
 				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1000))
-				for res := range attacker.Attack(loadTester.GetTargeter(), rate, params.AttackDuration, params.Description) {
+				targeter, seq := loadTester.GetTargeter()
+				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
+					targeter, seq = loadTester.GetTargeter()
 					globalWorkerMetrics.vegetaStats.Add(res)
-					loadTester.ProcessResult(res)
+					loadTester.ProcessResult(res, seq)
 					if statsdClient != nil {
 						var httpStatus = fmt.Sprintf("status:%d", res.Code)
 						_ = statsdClient.Timing("req-latency", res.Latency, []string{httpStatus}, 1.0)
 					}
 					select {
 					case params = <-paramsChan:
-						loadTester = createTargeter(targetUrl, params)
+						loadTester = createLoadTester(targetUrl, params)
 						attacker.Stop()
 
 						// Flush stats
