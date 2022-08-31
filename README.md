@@ -55,6 +55,9 @@ Use "go-load-tester run [command] --help" for more information about a command.
 
 ## Master mode
 
+**NOTE:** When running the load tester in master mode the server also exposes a documentation page under
+the `/docs` url ( i.e. http(s)://<SERVER_ADDRESS:PORT>/docs) 
+
 ```
 Usage:
   go-load-tester run master [flags]
