@@ -22,6 +22,9 @@ Global usage
 
 ## Master mode
 
+**NOTE:** When running the load tester in master mode the server also exposes a documentation page under
+the `/docs` url ( i.e. http(s)://<SERVER_ADDRESS:PORT>/docs) 
+
 ```
 {{.MasterUsage}}
 ```
