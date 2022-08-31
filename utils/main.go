@@ -16,7 +16,7 @@ import (
 )
 
 func GetAuthHeader(projectKey string) string {
-	//TODO need project key from settings (either CLI or config file)
+	// TODO need project key from settings (either CLI or config file)
 	return fmt.Sprintf("Sentry sentry_key=%s,sentry_version=7", projectKey)
 }
 
@@ -79,7 +79,7 @@ func RandomChoice(choices []string, relativeWeights []int64) (string, error) {
 		relativeWeights = append(relativeWeights, x...)
 	}
 
-	//cleanup relative weights
+	// cleanup relative weights
 	for idx := 0; idx < len(relativeWeights); idx++ {
 		if relativeWeights[idx] < 0 {
 			relativeWeights[idx] = 0
@@ -200,7 +200,7 @@ func GetStatsd(statsdAddr string) *statsd.Client {
 		return nil
 	}
 	var client *statsd.Client
-	//TODO find a better way to identify the current running worker (some Kubernetis magic ? )
+	// TODO find a better way to identify the current running worker (some Kubernetis magic ? )
 	ip, err := GetExternalIPv4()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get worker IP, messages will not be tagged\n")
@@ -259,4 +259,17 @@ func Divide(numerator, denominator int) ([]int, error) {
 	}
 
 	return retVal, nil
+}
+
+// LowerFirstLetter converts the first letter to lower case
+func LowerFirstLetter(s string) string {
+	for i := range s {
+		if i > 0 {
+			// The value i is the index in s of the second
+			// rune.
+			return strings.ToLower(s[:i]) + s[i:]
+		}
+	}
+	// There are 0 or 1 runes in the string.
+	return ""
 }
