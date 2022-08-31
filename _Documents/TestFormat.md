@@ -87,45 +87,84 @@ You can mix and match durations built with the two syntaxes: `duration("7h") * 3
 Below only the `config/params` object and `test_type/testType' field will be described since 
 everything else is common and was documented above.
 
-## Session
 
-Here's an example of session parameters:
+## ProjectConfigJob
 
-```json
-{
-  "startedRange": "1m",
-  "durationRange": "2m",
-  "numReleases": 3,
-  "numEnvironments": 4,
-  "numUsers": 5,
-  "okWeight": 6,
-  "exitedWeight": 7,
-  "erroredWeight": 8,
-  "crashedWeight": 9,
-  "abnormalWeight": 10
-}
-```
+ ProjectConfigJob is how a projectConfigJob is parametrized
 
-| field           | description                                                                                                                                  |
-|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| startedRange    | duration range for the start of the session relative to now (all generated sessions will have startTime between 0 and -startRange from now). |
-| durationRange   | the duration of the session ( between 0 and the specified duration)                                                                          |
-| numReleases     | number of unique releases created                                                                                                            |
-| numEnvironments | number of unique environments created                                                                                                        |
-| numUsers        | number or unique users                                                                                                                       |
-| okWeight        | relative weight of session with ok status                                                                                                    |
-| exitedWeight    | relative weight of session with exited status                                                                                                |
-| erroredWeight   | relative weight of session with errored status                                                                                               |
-| crashedWeight   | relative weight of session with crashed status                                                                                               |
-| abnormalWeight  | relative weight of session with abnormal status                                                                                              |
+ Here's an example of project config parameters:
+ ```json
+ {
+   "numRelays": 50,
+   "numProjects": 10000,
+   "minBatchSize": 10,
+   "maxBatchSize": 100,
+   "BatchInterval": "5s",
+   "projectInvalidationRatio": 0.001,
+   "RelayPublicKey": "ftFuDNBFm8-kPpuCuaWMio_mJAW2txCFCsaLMHn2vv0",
+   "RelayPrivateKey": "uZUtRaayN8uuuTTOjbs5EDfqWNwyDfFro6TERx6Wfhs",
+   "RelayId": "aaa12340-a123-123b-4567-0afe1f27e066",
+ }
+ ```
 
 
-### Transaction
+| field               | description     |
+|---------------------|-----------------|
+| numRelays | numRelays is the number of relays to use |
+| numProjects | numProjects to use in the requests |
+| minBatchSize | minBatchSize the minimum number of project in a project config request |
+| maxBatchSize | maxBatchSize the maximum number of projects in a project config request |
+| batchInterval | batchInterval is the duration of validity of a project config |
+| projectInvalidationRatio | the ratio from the number of requests that are invalidation requests (should be between 0 and 1). |
+| relayPublicKey | relayPublicKey public key for Relay authentication |
+| relayPrivateKey | relayPrivateKey private key for Relay authentication |
+| relayId | relayId is the id of the Relay used for authentication |
 
-Here's an example of transaction parameters:
 
-```json
-{
+
+## SessionJob
+
+ SessionJob is how a session load test is parameterized
+
+ Here's an example of session parameters:
+
+ ```json
+ {
+   "startedRange": "1m",
+   "durationRange": "2m",
+   "numReleases": 3,
+   "numEnvironments": 4,
+   "numUsers": 5,
+   "okWeight": 6,
+   "exitedWeight": 7,
+   "erroredWeight": 8,
+   "crashedWeight": 9,
+   "abnormalWeight": 10
+ }
+ ```
+
+
+| field               | description     |
+|---------------------|-----------------|
+| startedRange | startedRange represents the duration range for the start of the session relative to now (all generated sessions will have startTime between 0 and -startRange from now) |
+| durationRange | durationRange the duration of the session ( between 0 and the specified duration) |
+| numReleases | numReleases represents number of unique releases created |
+| numEnvironments | numEnvironments represents the  number of unique environments created |
+| numUsers | numUsers represents the number or unique users created |
+| okWeight | okWeight represents the relative weight of session with ok status |
+| exitedWeight | exitedWeight represents the relative weight of session with exited status |
+| erroredWeight | exitedWeight represents the relative weight of session with errored status |
+| crashedWeight | crashedWeight represents the relative weight of session with crashed status |
+| abnormalWeight | abnormalWeight represents the relative weight of session with abnormal status |
+
+
+
+## TransactionJob
+
+ TransactionJob is how a transactionJob load test is parameterized
+ example:
+ ```json
+ {
   "transactionDurationMax":"10m" ,
   "transactionDurationMin": "1m" ,
   "transactionTimestampSpread": "5h" ,
@@ -141,24 +180,26 @@ Here's an example of transaction parameters:
   "breadcrumbMessages": [ "Authenticating the user_name", "IOError: [Errno 2] No such file"],
   "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
   "operations": ["browser","http","db","resource.script"]
-}
-```
+ }
+ ```
 
-| field                      | description                                                                                                              |
-|----------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| transactionDurationMax     | TransactionDurationMax the maximum duration for a transaction                                                            |
-| transactionDurationMin     | TransactionDurationMin the minimum duration for a transaction                                                            |
-| transactionTimestampSpread | TransactionTimestampSpread the spread (from Now) of the timestamp, generated  transactions will have timestamps between  |
-| minSpans                   | MinSpans specifies the minimum number of spans generated in a transaction                                                |
-| maxSpans                   | MaxSpans specifies the maximum number of spans generated in a transaction                                                |
-| numReleases                | NumReleases specifies the maximum number of unique releases generated in a test                                          |
-| numUsers                   | NumUsers specifies the maximum number of unique users generated in a test                                                |
-| minBreadcrumbs             | MinBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test                              |
-| maxBreadcrumbs             | MaxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test                              |
-| breadcrumbCategories       | BreadcrumbCategories the categories used for breadcrumbs  (if not specified defaults will be used )                      |
-| breadcrumbLevels           | BreadcrumbLevels specifies levels used for breadcrumbs  (if not specified defaults will be used )                        |
-| breadcrumbsTypes           | BreadcrumbsTypes specifies the types used for breadcrumbs  (if not specified defaults will be used )                     |
-| breadcrumbMessages         | BreadcrumbMessages specifies messages set in breadcrumbs  (if not specified defaults will be used )                      |
-| measurements               | Measurements specifies measurements to be used  (if not specified NO measurements will be generated)                     |
-| operations                 | Operations specifies the operations to be used  (if not specified NO operations will be generated)                       |
-	
+
+| field               | description     |
+|---------------------|-----------------|
+| transactionDurationMax | transactionDurationMax the maximum duration for a transactionJob |
+| transactionDurationMin | transactionDurationMin the minimum duration for a transactionJob |
+| transactionTimestampSpread | transactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between  `Now` and `Now-TransactionTimestampSpread` |
+| minSpans | minSpans specifies the minimum number of spans generated in a transactionJob |
+| maxSpans | maxSpans specifies the maximum number of spans generated in a transactionJob |
+| numReleases | numReleases specifies the maximum number of unique releases generated in a test |
+| numUsers | numUsers specifies the maximum number of unique users generated in a test |
+| minBreadcrumbs | minBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test |
+| maxBreadcrumbs | maxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test |
+| breadcrumbCategories | breadcrumbCategories the categories used for breadcrumbs (if not specified defaults will be used *) |
+| breadcrumbLevels | breadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *) |
+| breadcrumbsTypes | breadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *) |
+| breadcrumbMessages | breadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *) |
+| measurements | measurements specifies measurements to be used (if not specified NO measurements will be generated) |
+| operations | operations specifies the operations to be used (if not specified NO operations will be generated) |
+
+

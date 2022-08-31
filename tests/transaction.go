@@ -8,44 +8,65 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/getsentry/go-load-tester/utils"
 	"github.com/rs/zerolog/log"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
+
+	"github.com/getsentry/go-load-tester/utils"
 )
 
 // TransactionJob is how a transactionJob load test is parameterized
+// example:
+// ```json
+// {
+//  "transactionDurationMax":"10m" ,
+//  "transactionDurationMin": "1m" ,
+//  "transactionTimestampSpread": "5h" ,
+//  "minSpans": 5,
+//  "maxSpans": 40,
+//  "numReleases": 1000 ,
+//  "numUsers": 2000,
+//  "minBreadcrumbs": 5,
+//  "maxBreadcrumbs": 25,
+//  "breadcrumbCategories": ["auth", "web-request", "query"],
+//  "breadcrumbLevels": ["fatal", "error", "warning", "info", "debug"],
+//  "breadcrumbsTypes": ["default", "http", "error"] ,
+//  "breadcrumbMessages": [ "Authenticating the user_name", "IOError: [Errno 2] No such file"],
+//  "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
+//  "operations": ["browser","http","db","resource.script"]
+// }
+// ```
 type TransactionJob struct {
-	//TransactionDurationMax the maximum duration for a transactionJob
+	// TransactionDurationMax the maximum duration for a transactionJob
 	TransactionDurationMax time.Duration `json:"transactionDurationMax,omitempty" yaml:"transactionDurationMax,omitempty"`
-	//TransactionDurationMin the minimum duration for a transactionJob
+	// TransactionDurationMin the minimum duration for a transactionJob
 	TransactionDurationMin time.Duration `json:"transactionDurationMin,omitempty" yaml:"transactionDurationMin,omitempty"`
-	//TransactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between
-	//`Now` and `Now-TransactionTimestampSpread`
+	// TransactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between
+	// `Now` and `Now-TransactionTimestampSpread`
 	TransactionTimestampSpread time.Duration `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
-	//MinSpans specifies the minimum number of spans generated in a transactionJob
+	// MinSpans specifies the minimum number of spans generated in a transactionJob
 	MinSpans uint64 `json:"minSpans,omitempty" yaml:"minSpans,omitempty"`
-	//MaxSpans specifies the maximum number of spans generated in a transactionJob
+	// MaxSpans specifies the maximum number of spans generated in a transactionJob
 	MaxSpans uint64 `json:"maxSpans,omitempty" yaml:"maxSpans,omitempty"`
-	//NumReleases specifies the maximum number of unique releases generated in a test
+	// NumReleases specifies the maximum number of unique releases generated in a test
 	NumReleases uint64 `json:"numReleases,omitempty" yaml:"numReleases,omitempty"`
-	//NumUsers specifies the maximum number of unique users generated in a test
+	// NumUsers specifies the maximum number of unique users generated in a test
 	NumUsers uint64 `json:"numUsers,omitempty" yaml:"numUsers,omitempty"`
-	//MinBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test
+	// MinBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test
 	MinBreadcrumbs uint64 `json:"minBreadcrumbs,omitempty" yaml:"minBreadcrumbs,omitempty"`
-	//MaxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test
+	// MaxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test
 	MaxBreadcrumbs uint64 `json:"maxBreadcrumbs,omitempty" yaml:"maxBreadcrumbs,omitempty"`
 	// BreadcrumbCategories the categories used for breadcrumbs (if not specified defaults will be used *)
 	BreadcrumbCategories []string `json:"breadcrumbCategories,omitempty" yaml:"breadcrumbCategories,omitempty"`
-	//BreadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *)
+	// BreadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *)
 	BreadcrumbLevels []string `json:"breadcrumbLevels,omitempty" yaml:"breadcrumbLevels,omitempty"`
-	//BreadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *)
+	// BreadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *)
 	BreadcrumbsTypes []string `json:"breadcrumbsTypes,omitempty" yaml:"breadcrumbsTypes,omitempty"`
-	//BreadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *)
+	// BreadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *)
 	BreadcrumbMessages []string `json:"breadcrumbMessages,omitempty" yaml:"breadcrumbMessages,omitempty"`
-	//Measurements specifies measurements to be used (if not specified NO measurements will be generated)
+	// Measurements specifies measurements to be used (if not specified NO measurements will be generated)
 	Measurements []string `json:"measurements,omitempty" yaml:"measurements,omitempty"`
-	//Operations specifies the operations to be used (if not specified NO operations will be generated)
+	// Operations specifies the operations to be used (if not specified NO operations will be generated)
 	Operations []string `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
@@ -80,7 +101,7 @@ func (tlt *transactionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 		tgt.Method = "POST"
 
-		//TODO add more sophisticated projectId/projectKey generation
+		// TODO add more sophisticated projectId/projectKey generation
 		projectId := "1"
 		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
 
@@ -96,7 +117,7 @@ func (tlt *transactionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 			return err
 		}
 
-		//var buff *bytes.Buffer
+		// var buff *bytes.Buffer
 		now := time.Now().UTC()
 		extraEnvelopeHeaders := map[string]string{
 			"trace_id":   transaction.Contexts.Trace.TraceId,
@@ -122,8 +143,8 @@ func (tlt *transactionLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {
 // other Events convert this structure into an Event struct and
 // add the other fields to it .
 type Transaction struct {
-	Timestamp      string             `json:"timestamp,omitempty"`       //RFC 3339
-	StartTimestamp string             `json:"start_timestamp,omitempty"` //RFC 3339
+	Timestamp      string             `json:"timestamp,omitempty"`       // RFC 3339
+	StartTimestamp string             `json:"start_timestamp,omitempty"` // RFC 3339
 	EventId        string             `json:"event_id"`
 	Release        string             `json:"release,omitempty"`
 	Transaction    string             `json:"transactionJob,omitempty"`

@@ -22,17 +22,44 @@ import (
 const timeFormat = "2006-01-02T03:04:05.000Z"
 
 // SessionJob is how a session load test is parameterized
+//
+// Here's an example of session parameters:
+//
+// ```json
+// {
+//   "startedRange": "1m",
+//   "durationRange": "2m",
+//   "numReleases": 3,
+//   "numEnvironments": 4,
+//   "numUsers": 5,
+//   "okWeight": 6,
+//   "exitedWeight": 7,
+//   "erroredWeight": 8,
+//   "crashedWeight": 9,
+//   "abnormalWeight": 10
+// }
+// ```
 type SessionJob struct {
-	StartedRange    time.Duration
-	DurationRange   time.Duration
-	NumReleases     int64
+	// StartedRange represents the duration range for the start of the session relative to now (all generated sessions will have startTime between 0 and -startRange from now)
+	StartedRange time.Duration
+	// DurationRange the duration of the session ( between 0 and the specified duration)
+	DurationRange time.Duration
+	// NumReleases represents number of unique releases created
+	NumReleases int64
+	// NumEnvironments represents the  number of unique environments created
 	NumEnvironments int64
-	NumUsers        int64
-	OkWeight        int64
-	ExitedWeight    int64
-	ErroredWeight   int64
-	CrashedWeight   int64
-	AbnormalWeight  int64
+	// NumUsers represents the number or unique users created
+	NumUsers int64
+	// OkWeight represents the relative weight of session with ok status
+	OkWeight int64
+	// ExitedWeight represents the relative weight of session with exited status
+	ExitedWeight int64
+	// ExitedWeight represents the relative weight of session with errored status
+	ErroredWeight int64
+	// CrashedWeight represents the relative weight of session with crashed status
+	CrashedWeight int64
+	// AbnormalWeight represents the relative weight of session with abnormal status
+	AbnormalWeight int64
 }
 
 // Session serialisation format for sessions
@@ -80,7 +107,7 @@ func (slt *sessionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 		tgt.Method = "POST"
 
-		//TODO add more sophisticated projectId/projectKey generation
+		// TODO add more sophisticated projectId/projectKey generation
 		projectId := "1"
 		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
 
@@ -179,7 +206,7 @@ func getSessionBody(sp SessionJob) ([]byte, error) {
 
 }
 
-//TODO Check if there is a cleaner way to do serialisation.
+// TODO Check if there is a cleaner way to do serialisation.
 
 func (s *SessionJob) UnmarshalJSON(b []byte) error {
 	if s == nil {
@@ -266,7 +293,7 @@ func (raw sessionJobRaw) into(result *SessionJob) error {
 	return nil
 }
 
-/// Struct used for serialisation
+// / Struct used for serialisation
 type sessionJobRaw struct {
 	StartedRange    string `json:"startedRange" yaml:"startedRange"`
 	DurationRange   string `json:"durationRange" yaml:"durationRange"`
