@@ -11,6 +11,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,16 +46,56 @@ var makeDocsParams struct {
 
 // master runs the load tester in master mode.
 var makeDocs = &cobra.Command{
-	Use:   "make-docs",
+	Use:   "update-docs",
 	Short: "Extract docs from source code into static files.",
 	Long:  `Creates static documents in the _Documents subdirectory.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info().Msgf("Creating documents in _Documents directory")
-		generateDocuments()
+		log.Info().Msgf("Creating documents in _Documents directory and README")
+		updateTestDocument()
+		updateReadme()
 	},
 }
 
-func generateDocuments() {
+func updateReadme() {
+	templateRaw, err := ioutil.ReadFile("README-template.md")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not generate documentation, error reading README-template.md.")
+
+		return
+	}
+	parsedTemplate, err := template.New("template").Parse(string(templateRaw))
+	usage := rootCmd.UsageString()
+	runUsage := runCmd.UsageString()
+	workerUsage := workerCmd.UsageString()
+	masterUsage := masterCmd.UsageString()
+
+	readmeFile, err := os.Create("README.md")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not generate documentation, error creating README.md file.")
+		return
+	}
+	defer func() { _ = readmeFile.Close() }()
+
+	params := struct {
+		RootUsage   string
+		RunUsage    string
+		WorkerUsage string
+		MasterUsage string
+	}{
+		RootUsage:   usage,
+		RunUsage:    runUsage,
+		WorkerUsage: workerUsage,
+		MasterUsage: masterUsage,
+	}
+
+	err = parsedTemplate.Execute(readmeFile, params)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not generate documentation, error parsing template file.")
+		return
+	}
+}
+
+func updateTestDocument() {
 	log.Info().Msg("Generating documents...")
 	dir, files, err := getCodeFiles()
 

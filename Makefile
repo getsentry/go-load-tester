@@ -2,9 +2,9 @@ build: lint
 	go mod download && go build
 .PHONY: build
 
-make-docs:
-	go run . make-docs
-.PHONY: make-docs
+update-docs:
+	go run . update-docs
+.PHONY: update-docs
 
 test:
 	go test ./... -v -count=1
