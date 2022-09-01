@@ -12,7 +12,7 @@ import (
 )
 
 // master runs the load tester in master mode.
-var master = &cobra.Command{
+var masterCmd = &cobra.Command{
 	Use:   "master",
 	Short: "Run load tester in master mode.",
 	Long: `Runs the load tester in master mode. 
@@ -25,5 +25,5 @@ Every command it receives it distributes to the workers.`,
 }
 
 func init() {
-	runCmd.AddCommand(master)
+	runCmd.AddCommand(masterCmd)
 }

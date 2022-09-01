@@ -19,7 +19,22 @@ import (
 	"github.com/getsentry/go-load-tester/utils"
 )
 
-// ProjectConfigJob is how a projectConfigJob is parametrize
+// ProjectConfigJob is how a projectConfigJob is parametrized
+//
+// Here's an example of project config parameters:
+// ```json
+// {
+//   "numRelays": 50,
+//   "numProjects": 10000,
+//   "minBatchSize": 10,
+//   "maxBatchSize": 100,
+//   "BatchInterval": "5s",
+//   "projectInvalidationRatio": 0.001,
+//   "RelayPublicKey": "ftFuDNBFm8-kPpuCuaWMio_mJAW2txCFCsaLMHn2vv0",
+//   "RelayPrivateKey": "uZUtRaayN8uuuTTOjbs5EDfqWNwyDfFro6TERx6Wfhs",
+//   "RelayId": "aaa12340-a123-123b-4567-0afe1f27e066",
+// }
+// ```
 type ProjectConfigJob struct {
 	// NumRelays is the number of relays to use
 	NumRelays int

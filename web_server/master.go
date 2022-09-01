@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/getsentry/go-load-tester/tests"
-	"github.com/getsentry/go-load-tester/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+
+	"github.com/getsentry/go-load-tester/tests"
+	"github.com/getsentry/go-load-tester/utils"
 )
 
 /*
@@ -203,7 +204,7 @@ func checkWorkersStatus() {
 }
 
 func masterStopHandler(ctx *gin.Context) {
-	//no need to refresh clients
+	// no need to refresh clients
 	log.Info().Msg("stop handler called")
 	var workerUrls = getWorkers()
 	var client = getDefaultHttpClient()
@@ -274,7 +275,7 @@ func mainDocsHandler(ctx *gin.Context) {
 }
 
 func getDocContent() string {
-	fileName := "_Documents/TestFormat.md"
+	fileName := "docs/TestFormat.md"
 	content, err := os.ReadFile(fileName)
 	if err != nil {
 		log.Error().Err(err).Msgf("could not read doc file:%s ", fileName)
