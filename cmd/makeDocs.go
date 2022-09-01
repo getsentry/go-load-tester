@@ -23,7 +23,7 @@ import (
 	"github.com/getsentry/go-load-tester/utils"
 )
 
-const DocFileName = "_Documents/TestFormat.md"
+const DocFileName = "docs/TestFormat.md"
 
 type FieldDefinition struct {
 	FieldName     string
@@ -48,9 +48,9 @@ var makeDocsParams struct {
 var makeDocs = &cobra.Command{
 	Use:   "update-docs",
 	Short: "Extract docs from source code into static files.",
-	Long:  `Creates static documents in the _Documents subdirectory.`,
+	Long:  `Creates static documents in the docs subdirectory.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info().Msgf("Creating documents in _Documents directory and README")
+		log.Info().Msgf("Creating documents in docs directory and README")
 		updateTestDocument()
 		updateReadme()
 	},
@@ -108,7 +108,7 @@ func updateTestDocument() {
 	if err != nil {
 		log.Error().Err(err).Msg("Error trying to extract structure definitions from code")
 	}
-
+	_ = os.Mkdir("docs", os.ModePerm)
 	f, err := os.Create(DocFileName)
 	defer func() { _ = f.Close() }()
 	err = writeTemplate(f, jobDefinitions)

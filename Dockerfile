@@ -21,7 +21,7 @@ FROM alpine:3.14 as final
 RUN apk --no-cache add bash
 WORKDIR /
 COPY --from=build /bin/go-load-tester /bin/go-load-tester
-COPY _Documents _Documents
+COPY docs docs
 COPY templates templates
 COPY static static
 

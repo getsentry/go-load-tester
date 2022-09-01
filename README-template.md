@@ -1,6 +1,6 @@
 # go-load-tester
 
-Load testing program, see _Documents for test parameter details.
+Load testing program, see [TestFormat.md](docs/TestFormat.md) for test parameter details.
 # Usage
 
 The load tester can run in a few modes:

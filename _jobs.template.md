@@ -84,7 +84,7 @@ You can mix and match durations built with the two syntaxes: `duration("7h") * 3
 
 # Tests
 
-Below only the `config/params` object and `test_type/testType' field will be described since 
+Below only the `config/params` object and `test_type/testType` field will be described since 
 everything else is common and was documented above.
 
 {{ range .Tests}}
