@@ -84,7 +84,21 @@ You can mix and match durations built with the two syntaxes: `duration("7h") * 3
 
 # Tests
 
-Below only the `config/params` object and `test_type/testType` field will be described since 
+Here’s a table with the existing functionality in `go-load-tester` together with the functionality in `ingest-load-tester`.
+
+`ingest-load-tester` is the legacy load tester and new functionality should preferably be added to `go-load-tester`.
+
+| Test type | ingest ld. tester | go ld. tester |
+| --- | --- | --- |
+| Project Config Endpoint | ❌ | ✅ |
+| Session | ✅ | ✅ |
+| Transaction | ✅ | ✅ |
+| Event | ✅ | ❌ |
+| Kafka outcome generator | ✅ | ❌ |
+| Kafka event generator | ✅ | ❌ |
+
+
+Below only the `config/params` object and `test_type/testType` field will be described since
 everything else is common and was documented above.
 
 {{ range .Tests}}
