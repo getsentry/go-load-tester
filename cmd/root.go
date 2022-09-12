@@ -40,7 +40,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&rootConfig.cfgDirectory, "config", ".config", "configuration directory, .config default")
+	rootCmd.PersistentFlags().StringVar(&rootConfig.cfgDirectory, "config", ".config", "configuration directory, ./.config by default")
 	rootCmd.PersistentFlags().StringVar(&rootConfig.logLevel, "log", "info", "Log level: trace, info, warn, (error), fatal, panic")
 	rootCmd.PersistentFlags().BoolVar(&rootConfig.useColor, "color", false, "Use color (only for console output).")
 }
