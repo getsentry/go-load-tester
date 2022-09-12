@@ -22,7 +22,7 @@ Available Commands:
 
 Flags:
       --color           Use color (only for console output).
-      --config string   configuration directory, .config default (default ".config")
+      --config string   configuration directory (default ".config")
       --log string      Log level: trace, info, warn, (error), fatal, panic (default "info")
 
 Use "go-load-tester [command] --help" for more information about a command.
@@ -46,7 +46,7 @@ Flags:
 
 Global Flags:
       --color           Use color (only for console output).
-      --config string   configuration directory, .config default (default ".config")
+      --config string   configuration directory (default ".config")
       --log string      Log level: trace, info, warn, (error), fatal, panic (default "info")
 
 Use "go-load-tester run [command] --help" for more information about a command.
@@ -64,7 +64,7 @@ Usage:
 
 Global Flags:
       --color                  Use color (only for console output).
-      --config string          configuration directory, .config default (default ".config")
+      --config string          configuration directory (default ".config")
       --log string             Log level: trace, info, warn, (error), fatal, panic (default "info")
   -p, --port string            port to listen to (default "8000")
       --statsd-server string   ip:port for the statsd server
@@ -85,7 +85,7 @@ Flags:
 
 Global Flags:
       --color                  Use color (only for console output).
-      --config string          configuration directory, .config default (default ".config")
+      --config string          configuration directory (default ".config")
       --log string             Log level: trace, info, warn, (error), fatal, panic (default "info")
   -p, --port string            port to listen to (default "8000")
       --statsd-server string   ip:port for the statsd server

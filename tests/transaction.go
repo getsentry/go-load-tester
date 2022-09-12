@@ -83,6 +83,10 @@ type transactionLoadTester struct {
 func newTransactionLoadTester(url string, rawTransaction json.RawMessage) LoadTester {
 	var transactionParams TransactionJob
 	err := json.Unmarshal(rawTransaction, &transactionParams)
+	if transactionParams.NumProjects == 0 {
+		// backward compatibility (if nothing provided fall back on one project)
+		transactionParams.NumProjects = 1
+	}
 
 	if err != nil {
 		log.Error().Err(err).Msgf("invalid transaction params received\nraw data\n%s",

@@ -95,6 +95,10 @@ func newSessionLoadTester(url string, rawSessionParams json.RawMessage) LoadTest
 		log.Error().Err(err).Msgf("invalid session params received\nraw data\n%s",
 			rawSessionParams)
 	}
+	if sessionParams.NumProjects == 0 {
+		// backward compatibility (if nothing provided fall back on one project)
+		sessionParams.NumProjects = 1
+	}
 
 	return &sessionLoadTester{
 		url:           url,
