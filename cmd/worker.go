@@ -30,6 +30,7 @@ var workerCmd = &cobra.Command{
 		if utils.FileExists(fileProjectPath) {
 			err := utils.RegisterProjectProvider(fileProjectPath)
 			if err != nil {
+				log.Error().Err(err).Msgf("Error processing projects file %s, terminating!", fileProjectPath)
 				return // error loading the Projects files
 			}
 		} else {
