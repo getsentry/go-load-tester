@@ -27,6 +27,7 @@ const timeFormat = "2006-01-02T03:04:05.000Z"
 //
 // ```json
 // {
+//   "numProjects": 10000,
 //   "startedRange": "1m",
 //   "durationRange": "2m",
 //   "numReleases": 3,
@@ -40,6 +41,8 @@ const timeFormat = "2006-01-02T03:04:05.000Z"
 // }
 // ```
 type SessionJob struct {
+	// NumProjects to use in the requests
+	NumProjects int
 	// StartedRange represents the duration range for the start of the session relative to now (all generated sessions will have startTime between 0 and -startRange from now)
 	StartedRange time.Duration
 	// DurationRange the duration of the session ( between 0 and the specified duration)
@@ -92,6 +95,10 @@ func newSessionLoadTester(url string, rawSessionParams json.RawMessage) LoadTest
 		log.Error().Err(err).Msgf("invalid session params received\nraw data\n%s",
 			rawSessionParams)
 	}
+	if sessionParams.NumProjects == 0 {
+		// backward compatibility (if nothing provided fall back on one project)
+		sessionParams.NumProjects = 1
+	}
 
 	return &sessionLoadTester{
 		url:           url,
@@ -100,6 +107,9 @@ func newSessionLoadTester(url string, rawSessionParams json.RawMessage) LoadTest
 }
 
 func (slt *sessionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
+	projectProvider := utils.GetProjectProvider()
+	var numProjects = slt.sessionParams.NumProjects
+
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -107,9 +117,9 @@ func (slt *sessionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 		tgt.Method = "POST"
 
-		// TODO add more sophisticated projectId/projectKey generation
-		projectId := "1"
-		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
+		projectId := projectProvider.GetProjectId(numProjects)
+		projectInfo := projectProvider.GetProjectInfo(projectId)
+		projectKey := projectInfo.ProjectKey
 
 		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", slt.url, projectId)
 		tgt.Header = make(http.Header)
@@ -243,6 +253,7 @@ func (s SessionJob) MarshalYaml() ([]byte, error) {
 
 func (s SessionJob) intoRaw() sessionJobRaw {
 	return sessionJobRaw{
+		NumProjects:     s.NumProjects,
 		StartedRange:    s.StartedRange.String(),
 		DurationRange:   s.DurationRange.String(),
 		NumReleases:     s.NumReleases,
@@ -280,6 +291,7 @@ func (raw sessionJobRaw) into(result *SessionJob) error {
 	if err != nil {
 		return fmt.Errorf("deserialization error, invalid duration %s passed to durationRange", raw.DurationRange)
 	}
+	result.NumProjects = raw.NumProjects
 	result.StartedRange = startedRange
 	result.DurationRange = durationRange
 	result.NumReleases = raw.NumReleases
@@ -295,6 +307,7 @@ func (raw sessionJobRaw) into(result *SessionJob) error {
 
 // / Struct used for serialisation
 type sessionJobRaw struct {
+	NumProjects     int    `json:"numProjects" yaml:"numProjects"`
 	StartedRange    string `json:"startedRange" yaml:"startedRange"`
 	DurationRange   string `json:"durationRange" yaml:"durationRange"`
 	NumReleases     int64  `json:"numReleases" yaml:"numReleases"`

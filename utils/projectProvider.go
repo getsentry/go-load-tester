@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
@@ -23,6 +24,7 @@ type ProjectProvider interface {
 	GetProjectInfo(projectId string) ProjectInfo
 }
 
+var setDefaultProvider sync.Once
 var projectProvider ProjectProvider
 
 type RandomProjectProvider struct{}
@@ -57,11 +59,11 @@ func (provider RandomProjectProvider) GetProjectInfo(projectId string) ProjectIn
 }
 
 type ProjectInfo struct {
-	ProjectId        string `json:"project_id,omitempty"`
-	ProjectKey       string `json:"project_key"`
-	ProjectApiKey    string `json:"access_token,omitempty"`
-	ProjectSlug      string `json:"project_slug,omitempty"`
-	OrganizationSlug string `json:"organization_slug,omitempty"`
+	ProjectId        string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	ProjectKey       string `json:"project_key" yaml:"project_key"`
+	ProjectApiKey    string `json:"access_token,omitempty" yaml:"access_token,omitempty"`
+	ProjectSlug      string `json:"project_slug,omitempty" yaml:"project_slug,omitempty"`
+	OrganizationSlug string `json:"organization_slug,omitempty" yaml:"organization_slug,omitempty"`
 }
 
 type FileProjectProvider struct {
@@ -132,22 +134,28 @@ func LoadFileProjectProvider(filePath string) (*FileProjectProvider, error) {
 	return &FileProjectProvider{projectInfo: projectInfos, projectIds: projectIds, nextProjectId: nextProjectIdMap}, nil
 }
 
-func RegisterProjectProvider(projectsFileName string) {
+func RegisterProjectProvider(projectsFileName string) error {
 	if len(projectsFileName) > 0 {
 		var err error
 		log.Info().Msgf("Loading projects from file: %s", projectsFileName)
 		projectProvider, err = LoadFileProjectProvider(projectsFileName)
 		if err != nil {
 			log.Error().Err(err).Msgf("Could not load projects from file: %s", projectsFileName)
+			return err
 		}
-	} else {
-		projectProvider = RandomProjectProvider{}
+		log.Info().Msgf("Loaded %d projects from project file.", projectProvider.GetNumberOfProjects())
 	}
+	return nil
 }
 
 // GetProjectProvider returns the current project provider.
 // Note: this function is not thread safe but since this is only initialised
 // once at the start of the program, it should be fine.
 func GetProjectProvider() ProjectProvider {
+	setDefaultProvider.Do(func() {
+		if projectProvider == nil {
+			projectProvider = RandomProjectProvider{}
+		}
+	})
 	return projectProvider
 }

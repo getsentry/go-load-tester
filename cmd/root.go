@@ -15,25 +15,17 @@ import (
 )
 
 var rootConfig struct {
-	cfgFile  string
-	useColor bool
-	logLevel string
+	cfgDirectory string
+	useColor     bool
+	logLevel     string
 }
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "go-load-tester",
 	Short: "Load tester",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//Run: func(cmd *cobra.Command, args []string) {
-	//},
+	Long: `Load tester utility based on vegeta. 
+It supports multiple types of load tests for the Sentry infrastructure.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -48,14 +40,14 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&rootConfig.cfgFile, "config", "", "config file (default is $HOME/.go-load-tester.yaml)")
+	rootCmd.PersistentFlags().StringVar(&rootConfig.cfgDirectory, "config", ".config", "configuration directory")
 	rootCmd.PersistentFlags().StringVar(&rootConfig.logLevel, "log", "info", "Log level: trace, info, warn, (error), fatal, panic")
 	rootCmd.PersistentFlags().BoolVar(&rootConfig.useColor, "color", false, "Use color (only for console output).")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	//setup logging
+	// setup logging
 	var consoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: !rootConfig.useColor,
 		TimeFormat: "15:04:05"}
 	log.Logger = zerolog.New(consoleWriter).With().Timestamp().Caller().Logger()
@@ -85,19 +77,9 @@ func initConfig() {
 
 	zerolog.SetGlobalLevel(logLevel)
 
-	if rootConfig.cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(rootConfig.cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.Getwd()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".go-load-tester" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".go-load-tester")
-	}
+	viper.AddConfigPath(rootConfig.cfgDirectory)
+	viper.SetConfigType("yaml")
+	viper.SetConfigName("config")
 	viper.SetEnvPrefix("LOAD_TEST")
 	viper.AutomaticEnv() // read in environment variables that match
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -281,4 +282,13 @@ func LowerFirstLetter(s string) string {
 	}
 	// There are 0 or 1 runes in the string.
 	return ""
+}
+
+// FileExists returns True if a file exists ( it must be a file i.e. not a directory)
+func FileExists(fileName string) bool {
+	info, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }

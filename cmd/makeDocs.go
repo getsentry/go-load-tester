@@ -138,7 +138,7 @@ func writeTemplate(outStream io.Writer, jobDefinitions []StructDefinition) error
 
 	err = t.Execute(outStream, data)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error executing template", templateName)
+		log.Error().Err(err).Msgf("Error executing template %s", templateName)
 	}
 
 	return nil

@@ -144,6 +144,7 @@ everything else is common and was documented above.
 
  ```json
  {
+   "numProjects": 10000,
    "startedRange": "1m",
    "durationRange": "2m",
    "numReleases": 3,
@@ -160,6 +161,7 @@ everything else is common and was documented above.
 
 | field               | description     |
 |---------------------|-----------------|
+| numProjects | numProjects to use in the requests |
 | startedRange | startedRange represents the duration range for the start of the session relative to now (all generated sessions will have startTime between 0 and -startRange from now) |
 | durationRange | durationRange the duration of the session ( between 0 and the specified duration) |
 | numReleases | numReleases represents number of unique releases created |
@@ -179,6 +181,7 @@ everything else is common and was documented above.
  example:
  ```json
  {
+  "numProjects": 10000,
   "transactionDurationMax":"10m" ,
   "transactionDurationMin": "1m" ,
   "transactionTimestampSpread": "5h" ,
@@ -200,6 +203,7 @@ everything else is common and was documented above.
 
 | field               | description     |
 |---------------------|-----------------|
+| numProjects | numProjects to use in the requests |
 | transactionDurationMax | transactionDurationMax the maximum duration for a transactionJob |
 | transactionDurationMin | transactionDurationMin the minimum duration for a transactionJob |
 | transactionTimestampSpread | transactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between  `Now` and `Now-TransactionTimestampSpread` |
