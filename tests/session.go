@@ -99,6 +99,7 @@ func newSessionLoadTester(url string, rawSessionParams json.RawMessage) LoadTest
 		// backward compatibility (if nothing provided fall back on one project)
 		sessionParams.NumProjects = 1
 	}
+	log.Trace().Msgf("Session generation for:\n%+v", sessionParams)
 
 	return &sessionLoadTester{
 		url:           url,
@@ -132,7 +133,7 @@ func (slt *sessionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 		}
 
 		tgt.Body = body
-		log.Trace().Msg("Attacking")
+		log.Trace().Msgf("Attacking project:%s", projectId)
 		return nil
 	}, 0
 }
