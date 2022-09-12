@@ -39,38 +39,38 @@ import (
 // ```
 type TransactionJob struct {
 	// NumProjects to use in the requests
-	NumProjects int `json:"numProjects" yaml:"numProjects"`
+	NumProjects int
 	// TransactionDurationMax the maximum duration for a transactionJob
-	TransactionDurationMax time.Duration `json:"transactionDurationMax,omitempty" yaml:"transactionDurationMax,omitempty"`
+	TransactionDurationMax time.Duration
 	// TransactionDurationMin the minimum duration for a transactionJob
-	TransactionDurationMin time.Duration `json:"transactionDurationMin,omitempty" yaml:"transactionDurationMin,omitempty"`
+	TransactionDurationMin time.Duration
 	// TransactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between
 	// `Now` and `Now-TransactionTimestampSpread`
-	TransactionTimestampSpread time.Duration `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
+	TransactionTimestampSpread time.Duration
 	// MinSpans specifies the minimum number of spans generated in a transactionJob
-	MinSpans uint64 `json:"minSpans,omitempty" yaml:"minSpans,omitempty"`
+	MinSpans uint64
 	// MaxSpans specifies the maximum number of spans generated in a transactionJob
-	MaxSpans uint64 `json:"maxSpans,omitempty" yaml:"maxSpans,omitempty"`
+	MaxSpans uint64
 	// NumReleases specifies the maximum number of unique releases generated in a test
-	NumReleases uint64 `json:"numReleases,omitempty" yaml:"numReleases,omitempty"`
+	NumReleases uint64
 	// NumUsers specifies the maximum number of unique users generated in a test
-	NumUsers uint64 `json:"numUsers,omitempty" yaml:"numUsers,omitempty"`
+	NumUsers uint64
 	// MinBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test
-	MinBreadcrumbs uint64 `json:"minBreadcrumbs,omitempty" yaml:"minBreadcrumbs,omitempty"`
+	MinBreadcrumbs uint64
 	// MaxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test
-	MaxBreadcrumbs uint64 `json:"maxBreadcrumbs,omitempty" yaml:"maxBreadcrumbs,omitempty"`
+	MaxBreadcrumbs uint64
 	// BreadcrumbCategories the categories used for breadcrumbs (if not specified defaults will be used *)
-	BreadcrumbCategories []string `json:"breadcrumbCategories,omitempty" yaml:"breadcrumbCategories,omitempty"`
+	BreadcrumbCategories []string
 	// BreadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *)
-	BreadcrumbLevels []string `json:"breadcrumbLevels,omitempty" yaml:"breadcrumbLevels,omitempty"`
+	BreadcrumbLevels []string
 	// BreadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *)
-	BreadcrumbsTypes []string `json:"breadcrumbsTypes,omitempty" yaml:"breadcrumbsTypes,omitempty"`
+	BreadcrumbsTypes []string
 	// BreadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *)
-	BreadcrumbMessages []string `json:"breadcrumbMessages,omitempty" yaml:"breadcrumbMessages,omitempty"`
+	BreadcrumbMessages []string
 	// Measurements specifies measurements to be used (if not specified NO measurements will be generated)
-	Measurements []string `json:"measurements,omitempty" yaml:"measurements,omitempty"`
+	Measurements []string
 	// Operations specifies the operations to be used (if not specified NO operations will be generated)
-	Operations []string `json:"operations,omitempty" yaml:"operations,omitempty"`
+	Operations []string
 }
 
 type transactionLoadTester struct {
@@ -92,6 +92,7 @@ func newTransactionLoadTester(url string, rawTransaction json.RawMessage) LoadTe
 		log.Error().Err(err).Msgf("invalid transaction params received\nraw data\n%s",
 			rawTransaction)
 	}
+	log.Trace().Msgf("Transaction generation for:\n%+v", transactionParams)
 
 	transactionGenerator := TransactionGenerator(transactionParams)
 
@@ -141,7 +142,7 @@ func (tlt *transactionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 		}
 
 		tgt.Body = buff.Bytes()
-		log.Trace().Msg("Attacking")
+		log.Trace().Msgf("Attacking project:%s", projectId)
 		return nil
 	}, 0
 }
@@ -230,6 +231,7 @@ func TransactionGenerator(job TransactionJob) func() Transaction {
 }
 
 type transactionJobRaw struct {
+	NumProjects                int      `json:"numProjects" yaml:"numProjects"`
 	TransactionDurationMax     string   `json:"transactionDurationMax,omitempty" yaml:"transactionDurationMax,omitempty"`
 	TransactionDurationMin     string   `json:"transactionDurationMin,omitempty" yaml:"transactionDurationMin,omitempty"`
 	TransactionTimestampSpread string   `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
@@ -282,6 +284,7 @@ func (t TransactionJob) MarshalYaml() ([]byte, error) {
 
 func (t TransactionJob) intoRaw() transactionJobRaw {
 	return transactionJobRaw{
+		NumProjects:                t.NumProjects,
 		TransactionDurationMax:     t.TransactionDurationMax.String(),
 		TransactionDurationMin:     t.TransactionDurationMin.String(),
 		TransactionTimestampSpread: t.TransactionTimestampSpread.String(),
@@ -331,6 +334,7 @@ func (raw transactionJobRaw) into(result *TransactionJob) error {
 		return fmt.Errorf("deserialization error, invalid duration %s passed to transactionTimestampSpread", raw.TransactionTimestampSpread)
 	}
 
+	result.NumProjects = raw.NumProjects
 	result.TransactionDurationMax = transactionDurationMax
 	result.TransactionDurationMin = transactionDurationMin
 	result.TransactionTimestampSpread = transactionTimestampSpread
