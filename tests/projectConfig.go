@@ -152,11 +152,11 @@ func (lt *projectConfigLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 	var privateKey, pkError = lt.GetRelayPrivateKey()
 	var reqSequence, reqType = lt.GetRequestSequence()
+	var numProjects = lt.config.NumProjects
 
 	getInvalidationRequest := func(target *vegeta.Target) error {
 
 		projectProvider := utils.GetProjectProvider()
-		numProjects := projectProvider.GetNumberOfProjects()
 		projectId := projectProvider.GetProjectId(numProjects)
 		projectInfo := projectProvider.GetProjectInfo(projectId)
 		apiKey := projectInfo.ProjectApiKey

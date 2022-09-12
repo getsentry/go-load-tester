@@ -19,6 +19,7 @@ import (
 // example:
 // ```json
 // {
+//  "numProjects": 10000,
 //  "transactionDurationMax":"10m" ,
 //  "transactionDurationMin": "1m" ,
 //  "transactionTimestampSpread": "5h" ,
@@ -37,6 +38,8 @@ import (
 // }
 // ```
 type TransactionJob struct {
+	// NumProjects to use in the requests
+	NumProjects int `json:"numProjects" yaml:"numProjects"`
 	// TransactionDurationMax the maximum duration for a transactionJob
 	TransactionDurationMax time.Duration `json:"transactionDurationMax,omitempty" yaml:"transactionDurationMax,omitempty"`
 	// TransactionDurationMin the minimum duration for a transactionJob
@@ -72,6 +75,7 @@ type TransactionJob struct {
 
 type transactionLoadTester struct {
 	url                  string
+	transactionParams    TransactionJob
 	transactionGenerator func() Transaction
 }
 
@@ -90,10 +94,14 @@ func newTransactionLoadTester(url string, rawTransaction json.RawMessage) LoadTe
 	return &transactionLoadTester{
 		transactionGenerator: transactionGenerator,
 		url:                  url,
+		transactionParams:    transactionParams,
 	}
 }
 
 func (tlt *transactionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
+	projectProvider := utils.GetProjectProvider()
+	var numProjects = tlt.transactionParams.NumProjects
+
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
 			return vegeta.ErrNilTarget
@@ -101,9 +109,9 @@ func (tlt *transactionLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 
 		tgt.Method = "POST"
 
-		// TODO add more sophisticated projectId/projectKey generation
-		projectId := "1"
-		projectKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"
+		projectId := projectProvider.GetProjectId(numProjects)
+		projectInfo := projectProvider.GetProjectInfo(projectId)
+		projectKey := projectInfo.ProjectKey
 
 		tgt.URL = fmt.Sprintf("%s/api/%s/envelope/", tlt.url, projectId)
 		tgt.Header = make(http.Header)
