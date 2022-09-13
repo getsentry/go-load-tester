@@ -88,27 +88,33 @@ func TestFileProjectProviderRandomAccess(t *testing.T) {
 }
 
 func TestFileProjectProviderSequentialAccess(t *testing.T) {
+
 	provider := getProjectProviderUtil(t)
 	if provider == nil {
 		return // error already logged
 	}
 
-	currentProjectId := "11"
-	for i := 0; i < 5; i++ {
-		projectId := provider.GetNextProjectId(7, currentProjectId)
-		if projectId == "" {
-			t.Fatal("Empty projectId returned")
+	numProjects := provider.GetNumberOfProjects()
+
+	for _, maxProjects := range []int{1, 3, 4, 5, 7} {
+		currentProjectId := "11"
+		wrapAround := Min(numProjects, maxProjects)
+		for i := 0; i < 5; i++ {
+			projectId := provider.GetNextProjectId(maxProjects, currentProjectId)
+			if projectId == "" {
+				t.Fatal("Empty projectId returned")
+			}
+			projIdNum, err := strconv.Atoi(projectId)
+			if err != nil {
+				t.Fatal("Invalid project id ", err)
+			}
+			// we start at 11 (for i == 0 ) and the next projectId would be 12, we only have 4 projects
+			// we can calculate the expected next project id from this
+			expectedNextProjectId := 11 + (i+1)%wrapAround
+			if expectedNextProjectId != projIdNum {
+				t.Fatal("Unexpected next projectId expected, got", expectedNextProjectId, projIdNum)
+			}
+			currentProjectId = projectId
 		}
-		projIdNum, err := strconv.Atoi(projectId)
-		if err != nil {
-			t.Fatal("Invalid project id ", err)
-		}
-		// we start at 11 (for i == 0 ) and the next projectId would be 12, we only have 4 projects
-		// we can calculate the expected next project id from this
-		expectedNextProjectId := 11 + (i+1)%4
-		if expectedNextProjectId != projIdNum {
-			t.Fatal("Unexpected next projectId expected, got", expectedNextProjectId, projIdNum)
-		}
-		currentProjectId = projectId
 	}
 }

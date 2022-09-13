@@ -67,9 +67,9 @@ type ProjectInfo struct {
 }
 
 type FileProjectProvider struct {
-	projectInfo   map[string]ProjectInfo
-	nextProjectId map[string]string
-	projectIds    []string
+	projectInfo    map[string]ProjectInfo
+	projectIdToIdx map[string]int
+	projectIds     []string
 }
 
 func (provider FileProjectProvider) GetNumberOfProjects() int {
@@ -85,7 +85,6 @@ func (provider FileProjectProvider) GetProjectInfo(projectId string) ProjectInfo
 	return provider.projectInfo[projectId]
 }
 
-// TODO this is broken it must be fixed for the ProjectConfig test.
 func (provider FileProjectProvider) GetNextProjectId(maxProjects int, currentProjectId string) string {
 	if len(provider.projectIds) == 0 {
 		return ""
@@ -93,7 +92,16 @@ func (provider FileProjectProvider) GetNextProjectId(maxProjects int, currentPro
 	if currentProjectId == "" {
 		return provider.projectIds[0]
 	}
-	return provider.nextProjectId[currentProjectId]
+	currentProjectIdx, ok := provider.projectIdToIdx[currentProjectId]
+	if !ok {
+		log.Error().Msgf("Unknown project id '%s' returning the first project id", currentProjectId)
+		return provider.projectIds[0]
+	}
+
+	// go to the next project id, wrap around at maxProjects or the actual number of projects
+	nextProjectIdx := (currentProjectIdx + 1) % Min(maxProjects, len(provider.projectIds))
+
+	return provider.projectIds[nextProjectIdx]
 }
 
 // LoadFileProjectProvider loads projects from a json file containing a list of projectId to projectKey mappings.
@@ -116,25 +124,17 @@ func LoadFileProjectProvider(filePath string) (*FileProjectProvider, error) {
 
 	var projectIds = make([]string, 0, len(projects))
 	var projectInfos = make(map[string]ProjectInfo, len(projects))
-	var nextProjectIdMap = make(map[string]string, len(projects))
+	var projectIdToIdx = make(map[string]int, len(projects))
 
 	// consolidate project info ( the projectInfos were not deserialize)
-	previousProjectId := ""
-	for _, projInfo := range projects {
+	for idx, projInfo := range projects {
 		projId := projInfo.ProjectId
 		projectInfos[projId] = projInfo
 		projectIds = append(projectIds, projId)
-		if previousProjectId != "" {
-			nextProjectIdMap[previousProjectId] = projId
-		}
-		previousProjectId = projId
-	}
-	if len(projectIds) > 0 {
-		// wrap around
-		nextProjectIdMap[previousProjectId] = projectIds[0]
+		projectIdToIdx[projId] = idx
 	}
 
-	return &FileProjectProvider{projectInfo: projectInfos, projectIds: projectIds, nextProjectId: nextProjectIdMap}, nil
+	return &FileProjectProvider{projectInfo: projectInfos, projectIds: projectIds, projectIdToIdx: projectIdToIdx}, nil
 }
 
 func RegisterProjectProvider(projectsFileName string) error {
