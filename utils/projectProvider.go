@@ -59,7 +59,7 @@ func (provider RandomProjectProvider) GetProjectInfo(projectId string) ProjectIn
 }
 
 type ProjectInfo struct {
-	ProjectId        string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	ProjectId        string `json:"project_id" yaml:"project_id"`
 	ProjectKey       string `json:"project_key" yaml:"project_key"`
 	ProjectApiKey    string `json:"access_token,omitempty" yaml:"access_token,omitempty"`
 	ProjectSlug      string `json:"project_slug,omitempty" yaml:"project_slug,omitempty"`
@@ -85,6 +85,7 @@ func (provider FileProjectProvider) GetProjectInfo(projectId string) ProjectInfo
 	return provider.projectInfo[projectId]
 }
 
+// TODO this is broken it must be fixed for the ProjectConfig test.
 func (provider FileProjectProvider) GetNextProjectId(maxProjects int, currentProjectId string) string {
 	if len(provider.projectIds) == 0 {
 		return ""
@@ -106,20 +107,22 @@ func LoadFileProjectProvider(filePath string) (*FileProjectProvider, error) {
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	var projectInfos map[string]ProjectInfo
-	err = json.Unmarshal([]byte(byteValue), &projectInfos)
+	var projects []ProjectInfo
+	err = json.Unmarshal([]byte(byteValue), &projects)
 	if err != nil {
 		log.Err(err).Msg("Failed to parse project file")
 		return nil, err
 	}
 
-	var projectIds = make([]string, 0, len(projectInfos))
-	var nextProjectIdMap = make(map[string]string)
+	var projectIds = make([]string, 0, len(projects))
+	var projectInfos = make(map[string]ProjectInfo, len(projects))
+	var nextProjectIdMap = make(map[string]string, len(projects))
 
 	// consolidate project info ( the projectInfos were not deserialize)
 	previousProjectId := ""
-	for projId, projInfo := range projectInfos {
-		projInfo.ProjectId = projId
+	for _, projInfo := range projects {
+		projId := projInfo.ProjectId
+		projectInfos[projId] = projInfo
 		projectIds = append(projectIds, projId)
 		if previousProjectId != "" {
 			nextProjectIdMap[previousProjectId] = projId

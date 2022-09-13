@@ -3,17 +3,18 @@ package utils
 import (
 	"math/rand"
 	"os"
+	"strconv"
 	"testing"
 )
 
 func createTestProjectInfoFile() (string, error) {
 	data := `
-{
-	"11": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1","access_token":"abc1", "project_slug": "proj-11", "organization_slug": "org-11"},
-	"12": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2","access_token":"abc2", "project_slug": "proj-12", "organization_slug": "org-12"},
-	"13": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3","access_token":"abc3", "project_slug": "proj-13", "organization_slug": "org-13"},
-	"14": {"project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","access_token":"abc4", "project_slug": "proj-14", "organization_slug": "org-14"}
-}
+[
+	{"project_id":"11", "project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1","access_token":"abc1", "project_slug": "proj-11", "organization_slug": "org-11"},
+	{"project_id":"12", "project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2","access_token":"abc2", "project_slug": "proj-12", "organization_slug": "org-12"},
+	{"project_id":"13", "project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3","access_token":"abc3", "project_slug": "proj-13", "organization_slug": "org-13"},
+	{"project_id":"14", "project_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","access_token":"abc4", "project_slug": "proj-14", "organization_slug": "org-14"}
+]
 `
 	f, err := os.CreateTemp("", "ProjectInfo-*.json")
 
@@ -92,19 +93,22 @@ func TestFileProjectProviderSequentialAccess(t *testing.T) {
 		return // error already logged
 	}
 
-	projectIds := map[string]bool{}
-	currentProjectId := ""
-	// iterate through more than the length
-	for i := 0; i < 6; i++ {
+	currentProjectId := "11"
+	for i := 0; i < 5; i++ {
 		projectId := provider.GetNextProjectId(7, currentProjectId)
 		if projectId == "" {
 			t.Fatal("Empty projectId returned")
 		}
-		projectIds[projectId] = true
+		projIdNum, err := strconv.Atoi(projectId)
+		if err != nil {
+			t.Fatal("Invalid project id ", err)
+		}
+		// we start at 11 (for i == 0 ) and the next projectId would be 12, we only have 4 projects
+		// we can calculate the expected next project id from this
+		expectedNextProjectId := 11 + (i+1)%4
+		if expectedNextProjectId != projIdNum {
+			t.Fatal("Unexpected next projectId expected, got", expectedNextProjectId, projIdNum)
+		}
 		currentProjectId = projectId
-	}
-	// check we iterated through all projects and cycled back to the first one
-	if len(projectIds) != 4 {
-		t.Fatal("Not all projects were returned expected 4 got", len(projectIds))
 	}
 }
