@@ -33,23 +33,23 @@ const (
 )
 
 type MetricBucket struct {
-	Name  string
-	Unit  string
-	Width uint64
+	Name  string `json:"name"`
+	Unit  string `json:"unit"`
+	Width uint64 `json:"width"`
 	// one of
-	Type BucketType
+	Type BucketType `json:"type"`
 	// Value is []float64 for distribution, float64 for counter, []int32 for set, GaugeValue for gauge
-	Value     any
-	Timestamp int64
-	Tags      map[string]string
+	Value     any               `json:"value"`
+	Timestamp int64             `json:"timestamp"`
+	Tags      map[string]string `json:"tags"`
 }
 
 type GaugeValue struct {
-	Max   float64
-	Min   float64
-	Sum   float64
-	Last  float64
-	Count uint64
+	Max   float64 `json:"max"`
+	Min   float64 `json:"min"`
+	Sum   float64 `json:"sum"`
+	Last  float64 `json:"last"`
+	Count uint64  `json:"count"`
 }
 
 type metricBucketLoadTester struct {
@@ -75,8 +75,7 @@ func newMetricsBucketLoadTester(url string, rawTransaction json.RawMessage) Load
 func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricBucket {
 	// TODO fill bucket with values based on the metric parameters
 
-	// TODO check if indeed we need the timestamp in milliseconds or something else
-	var timestamp int64 = time.Now().UnixMilli()
+	var timestamp int64 = time.Now().Unix()
 	// TODO check
 	var width uint64 = 2
 	// TODO check
