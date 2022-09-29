@@ -79,11 +79,11 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 	// TODO check
 	var width uint64 = 2
 	// TODO check
-	var unit string = "the unit"
+	var unit string = "theunit"
 	// TODO check
 	var sourceEventType string = "transaction"
 	// TODO add some variation from params
-	var name string = fmt.Sprintf("%s:%s/my-measurement@none", bucketType, sourceEventType)
+	var name string = fmt.Sprintf("%s:%s/mymeasurement@none", bucketType, sourceEventType)
 	tags := map[string]string{
 		"name1": "value1",
 		"name2": "value2",
