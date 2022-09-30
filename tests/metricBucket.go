@@ -3,6 +3,7 @@ package tests
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 // MetricBucketJob is how a metricBucket job is parametrized
 //
 type MetricBucketJob struct {
+	// Total number of metric names that will be generated
+	NumMetricNames int
+
 	NumProjects      int
 	NumDistributions int
 	NumGauges        int
@@ -82,8 +86,14 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 	var unit string = "theunit"
 	// TODO check
 	var sourceEventType string = "transactions"
-	// TODO add some variation from params
-	var name string = fmt.Sprintf("%s:%s/mymeasurement@none", bucketType, sourceEventType)
+
+	var numMetricNames int = mlt.metricBucketParams.NumMetricNames
+	if numMetricNames <= 0 {
+		numMetricNames = 1
+	}
+
+	var metricName string = fmt.Sprintf("metric%d", rand.Int63n(int64(numMetricNames)))
+	var fullMetricName string = fmt.Sprintf("%s:%s/%s@none", bucketType, metricName, sourceEventType)
 	tags := map[string]string{
 		"name1": "value1",
 		"name2": "value2",
@@ -94,7 +104,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		return MetricBucket{
 			Type: Distribution,
 			// TODO....
-			Name:      name,
+			Name:      fullMetricName,
 			Value:     []float64{1.0, 2.0},
 			Unit:      unit,
 			Width:     width,
@@ -105,7 +115,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		return MetricBucket{
 			Type: Set,
 			// TODO....
-			Name:      name,
+			Name:      fullMetricName,
 			Value:     []int32{1, 2, 3},
 			Unit:      unit,
 			Width:     width,
@@ -116,7 +126,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		return MetricBucket{
 			Type: Counter,
 			// TODO....
-			Name:      name,
+			Name:      fullMetricName,
 			Value:     33.0,
 			Unit:      unit,
 			Width:     width,
@@ -127,7 +137,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		return MetricBucket{
 			Type: Gauge,
 			// TODO....
-			Name: name,
+			Name: fullMetricName,
 			Value: GaugeValue{
 				Min:   1.0,
 				Max:   20.0,
