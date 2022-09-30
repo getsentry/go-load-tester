@@ -93,7 +93,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 	}
 
 	var metricName string = fmt.Sprintf("metric%d", rand.Int63n(int64(numMetricNames)))
-	var fullMetricName string = fmt.Sprintf("%s:%s/%s@none", bucketType, metricName, sourceEventType)
+	var fullMetricName string = fmt.Sprintf("%s:%s/%s@none", bucketType, sourceEventType, metricName)
 	tags := map[string]string{
 		"name1": "value1",
 		"name2": "value2",
