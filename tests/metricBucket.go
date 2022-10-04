@@ -14,17 +14,50 @@ import (
 )
 
 // MetricBucketJob is how a metricBucket job is parametrized
-//
+// example:
+// ```json
+// {
+//   "numMetricNames": 100,
+//   "numProjects": 1000,
+//   "numDistributions": 7,
+//   "numGauges": 0,
+//   "numSets": 3,
+//   "numCounters": 8,
+//   "minMetricsInDistribution": 4,
+//   "maxMetricsInDistribution": 25,
+//   "minMetricsInSets": 4,
+//   "maxMetricsInSets": 30,
+//   "numTagsPerMetric": 5,
+//   "numValuesPerTag": 3
+// }
+// ```
 type MetricBucketJob struct {
-	// Total number of metric names that will be generated
-	NumMetricNames int
-
-	NumProjects      int
-	NumDistributions int
-	NumGauges        int
-	NumSets          int
-	NumCounters      int
-	// TODO add the rest configurations
+	// NumMetricNames represents the total number of metric names that will be generated
+	NumMetricNames int `json:"numMetricNames"`
+	// NumProjects represents the number of projects that will be used for the metric messages
+	NumProjects int `json:"numProjects"`
+	// NumDistributions created in each messages
+	NumDistributions int `json:"numDistributions"`
+	// NumberGauges created in each message
+	NumGauges int `json:"numGauges"`
+	// NumSets created in each messages
+	NumSets int `json:"numSets"`
+	// NumCounters created in each message
+	NumCounters int `json:"numCounters"`
+	// MinMetricsInDistribution the minimum number of metrics created in each distribution bucket
+	MinMetricsInDistribution int `json:"minMetricsInDistribution"`
+	// MaxMetricsInDistribution the maximum number of metrics created in each distribution bucket
+	MaxMetricsInDistribution int `json:"maxMetricsInDistribution"`
+	// MinMetricsInSets the minimum number of metrics created in each set
+	MinMetricsInSets int `json:"minMetricsInSets"`
+	// MaxMetricsInSets the maximum number of metrics created in each set
+	MaxMetricsInSets int `json:"maxMetricsInSets"`
+	// NumTagsPerMetric Number of tags created for each bucket
+	// To make things predictable each bucket will contain the all the tags
+	// The number of total buckets can be calculated as NumTagsPerMetric^NumValuesPerTag
+	NumTagsPerMetric int `json:"numTagsPerMetric"`
+	// NumValuesPerTag how many distinct values are generated for each tag
+	NumValuesPerTag int `json:"numValuesPerTag"`
 }
 
 type BucketType string
@@ -61,6 +94,53 @@ type metricBucketLoadTester struct {
 	metricBucketParams MetricBucketJob
 }
 
+func randomGaugeValue() GaugeValue {
+	min := rand.Float64()*100 + 1
+	max := rand.Float64()*100 + min
+	last := min + (max-min)*rand.Float64()  // somewhere between max and min
+	count := rand.Int63n(50) + 4            // at least a few so max, min and last make some sense
+	sum := float64(count) * (max + min) / 2 // something plausible ( count * middle of the interval)
+	return GaugeValue{
+		Max:   max,
+		Min:   min,
+		Sum:   sum,
+		Last:  last,
+		Count: uint64(count),
+	}
+}
+
+func randomTags(numTags int, numValues int) map[string]string {
+	retVal := make(map[string]string, numTags)
+	for tagIdx := 1; tagIdx <= numTags; tagIdx++ {
+		tagName := fmt.Sprintf("t%d", tagIdx)
+		tagValue := fmt.Sprintf("v%d", rand.Intn(numValues)+1)
+		retVal[tagName] = tagValue
+	}
+	return retVal
+}
+
+func randomIntArray(minNumElements int, maxNumElements int) []int32 {
+	numElements := minNumElements + rand.Intn(maxNumElements-minNumElements)
+	retVal := make([]int32, 0, numElements)
+	var lastValue int32 = 0
+	for idx := 0; idx < numElements; idx++ {
+		lastValue += rand.Int31n(5)
+		retVal = append(retVal, lastValue)
+	}
+	return retVal
+}
+
+func randomFloat64Array(minNumElements int, maxNumElements int) []float64 {
+	numElements := minNumElements + rand.Intn(maxNumElements-minNumElements)
+	retVal := make([]float64, 0, numElements)
+	lastValue := 0.0
+	for idx := 0; idx < numElements; idx++ {
+		lastValue += rand.Float64() * 5.0
+		retVal = append(retVal, lastValue)
+	}
+	return retVal
+}
+
 func newMetricsBucketLoadTester(url string, rawTransaction json.RawMessage) LoadTester {
 	var metricBucketParams MetricBucketJob
 	err := json.Unmarshal(rawTransaction, &metricBucketParams)
@@ -77,35 +157,28 @@ func newMetricsBucketLoadTester(url string, rawTransaction json.RawMessage) Load
 }
 
 func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricBucket {
-	// TODO fill bucket with values based on the metric parameters
 
 	var timestamp int64 = time.Now().Unix()
-	// TODO check
 	var width uint64 = 2
-	// TODO check
 	var unit string = "theunit"
-	// TODO check
 	var sourceEventType string = "transactions"
+	var params MetricBucketJob = mlt.metricBucketParams
 
-	var numMetricNames int = mlt.metricBucketParams.NumMetricNames
+	var numMetricNames int = params.NumMetricNames
 	if numMetricNames <= 0 {
 		numMetricNames = 1
 	}
 
 	var metricName string = fmt.Sprintf("metric%d", rand.Int63n(int64(numMetricNames)))
 	var fullMetricName string = fmt.Sprintf("%s:%s/%s@none", bucketType, sourceEventType, metricName)
-	tags := map[string]string{
-		"name1": "value1",
-		"name2": "value2",
-	}
+	tags := randomTags(params.NumTagsPerMetric, params.NumValuesPerTag)
 
 	switch bucketType {
 	case Distribution:
 		return MetricBucket{
-			Type: Distribution,
-			// TODO....
+			Type:      Distribution,
 			Name:      fullMetricName,
-			Value:     []float64{1.0, 2.0},
+			Value:     randomFloat64Array(params.MinMetricsInDistribution, params.MaxMetricsInDistribution),
 			Unit:      unit,
 			Width:     width,
 			Timestamp: timestamp,
@@ -113,10 +186,9 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		}
 	case Set:
 		return MetricBucket{
-			Type: Set,
-			// TODO....
+			Type:      Set,
 			Name:      fullMetricName,
-			Value:     []int32{1, 2, 3},
+			Value:     randomIntArray(params.MaxMetricsInSets, params.MinMetricsInSets),
 			Unit:      unit,
 			Width:     width,
 			Timestamp: timestamp,
@@ -124,8 +196,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		}
 	case Counter:
 		return MetricBucket{
-			Type: Counter,
-			// TODO....
+			Type:      Counter,
 			Name:      fullMetricName,
 			Value:     33.0,
 			Unit:      unit,
@@ -135,16 +206,9 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		}
 	case Gauge:
 		return MetricBucket{
-			Type: Gauge,
-			// TODO....
-			Name: fullMetricName,
-			Value: GaugeValue{
-				Min:   1.0,
-				Max:   20.0,
-				Last:  5.0,
-				Sum:   26.0,
-				Count: 3,
-			},
+			Type:      Gauge,
+			Name:      fullMetricName,
+			Value:     randomGaugeValue(),
 			Unit:      unit,
 			Width:     width,
 			Timestamp: timestamp,
@@ -162,6 +226,7 @@ func (mlt *metricBucketLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	var numSets = mlt.metricBucketParams.NumSets
 	var numDistributions = mlt.metricBucketParams.NumDistributions
 	var numGauges = mlt.metricBucketParams.NumGauges
+	var traceGenerator = EventIdGenerator()
 
 	return func(tgt *vegeta.Target) error {
 		if tgt == nil {
@@ -204,17 +269,13 @@ func (mlt *metricBucketLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 		}
 
 		now := time.Now().UTC()
-		// TODO figure out the traceId... probably same deal as in transaction generation
 		extraEnvelopeHeaders := map[string]string{
-			// "trace_id":   transaction.Contexts.Trace.TraceId,
+			"trace_id":   traceGenerator(),
 			"public_key": projectKey,
 		}
 
 		EventId := EventIdGenerator()()
 
-		// TODO check how we assemble buckets in items
-		// probably multiple buckets in one item (but not sure)
-		// the code below assumes one item with multiple buckets (need to double check with ingest team)
 		buff, err := utils.EnvelopeFromBody(EventId, now, "metric_buckets", extraEnvelopeHeaders, body)
 		if err != nil {
 			return err
