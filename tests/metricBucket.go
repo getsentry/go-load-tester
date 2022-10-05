@@ -120,6 +120,13 @@ func randomTags(numTags int, numValues int) map[string]string {
 }
 
 func randomIntArray(minNumElements int, maxNumElements int) []int32 {
+	if minNumElements >= maxNumElements {
+		log.Warn().Msgf("Invalid parameters minNumElements(%d) <= maxNumElements(%d)\n reversing min and max", minNumElements, maxNumElements)
+		minNumElements, maxNumElements = maxNumElements, minNumElements
+		if maxNumElements == minNumElements {
+			maxNumElements += 1
+		}
+	}
 	numElements := minNumElements + rand.Intn(maxNumElements-minNumElements)
 	retVal := make([]int32, 0, numElements)
 	var lastValue int32 = 0
@@ -131,6 +138,13 @@ func randomIntArray(minNumElements int, maxNumElements int) []int32 {
 }
 
 func randomFloat64Array(minNumElements int, maxNumElements int) []float64 {
+	if minNumElements >= maxNumElements {
+		log.Warn().Msgf("Invalid parameters minNumElements(%d) <= maxNumElements(%d)\n reversing min and max", minNumElements, maxNumElements)
+		minNumElements, maxNumElements = maxNumElements, minNumElements
+		if maxNumElements == minNumElements {
+			maxNumElements += 1
+		}
+	}
 	numElements := minNumElements + rand.Intn(maxNumElements-minNumElements)
 	retVal := make([]float64, 0, numElements)
 	lastValue := 0.0
@@ -188,7 +202,7 @@ func (mlt *metricBucketLoadTester) GenerateBucket(bucketType BucketType) MetricB
 		return MetricBucket{
 			Type:      Set,
 			Name:      fullMetricName,
-			Value:     randomIntArray(params.MaxMetricsInSets, params.MinMetricsInSets),
+			Value:     randomIntArray(params.MinMetricsInSets, params.MaxMetricsInSets),
 			Unit:      unit,
 			Width:     width,
 			Timestamp: timestamp,
