@@ -148,7 +148,8 @@ func filterJobs(typeSpec *ast.TypeSpec, structSpec *ast.StructType) bool {
 	if typeSpec == nil || typeSpec.Name == nil || structSpec == nil {
 		return false
 	}
-	if strings.HasSuffix(typeSpec.Name.Name, "Job") {
+	if strings.Contains(typeSpec.Name.Name, "Job") &&
+		!strings.Contains(typeSpec.Name.Name, "Raw") {
 		return true
 	}
 	return false
