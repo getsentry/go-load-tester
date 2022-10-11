@@ -14,6 +14,7 @@ import (
 )
 
 // TransactionJobCommon represents the common parameters for transactions jobs (both V1 and V2)
+// NOTE: No YAML support (yaml unlike json does not flatten embedded structures)
 type TransactionJobCommon struct {
 	// TransactionDurationMax the maximum duration for a transactionJob
 	TransactionDurationMax utils.StringDuration `json:"transactionDurationMax,omitempty" yaml:"transactionDurationMax,omitempty"`
@@ -66,6 +67,9 @@ type TransactionJobCommon struct {
 //  "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
 //  "operations": ["browser","http","db","resource.script"]
 // }
+//
+//  NOTE YAML serializer creates a sub-object for embedded structures (i.e. all fields in TransactionJobCommon
+//  will appear as
 // ```
 type TransactionJob struct {
 	// NumProjects to use in the requests
@@ -74,7 +78,7 @@ type TransactionJob struct {
 	// `Now` and `Now-TransactionTimestampSpread`
 	TransactionTimestampSpread utils.StringDuration `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
 	// TransactionJobCommon Common transaction job parameters
-	TransactionJobCommon
+	TransactionJobCommon `yaml:"transactionJobCommon"`
 }
 
 // TimestampHistogramBucket represents a bucket in a timestamp histogram
@@ -137,13 +141,58 @@ func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
 	return pp.RelativeFreqRatio
 }
 
+// TransactionJobV2 is how a transactionJobV2 load test is parameterized
+// example:
+// ```json
+// {
+//  "projectDistribution: [
+//    {
+//      "numProjects": 100,
+//      "relativeFreqRatio" : 1.0,
+//      "timestampHistogram": [
+//        { "ratio": 5, "maxDelay": "1s"},
+//        { "ratio": 3, "maxDelay": "10s"},
+//	      { "ratio": 2, "maxDelay": "20s"}
+//      ]
+//    },
+//    {
+//      "numProjects": 200,
+//      "relativeFreqRatio" : 4.0,
+//      "timestampHistogram": [
+//        { "ratio": 20, "maxDelay": "1s"},
+//        { "ratio": 1, "maxDelay": "5s"}
+//      ]
+//    }
+//  ],
+//  "transactionDurationMax":"10m" ,
+//  "transactionDurationMin": "1m" ,
+//  "minSpans": 5,
+//  "maxSpans": 40,
+//  "numReleases": 1000 ,
+//  "numUsers": 2000,
+//  "minBreadcrumbs": 5,
+//  "maxBreadcrumbs": 25,
+//  "breadcrumbCategories": ["auth", "web-request", "query"],
+//  "breadcrumbLevels": ["fatal", "error", "warning", "info", "debug"],
+//  "breadcrumbsTypes": ["default", "http", "error"] ,
+//  "breadcrumbMessages": [ "Authenticating the user_name", "IOError: [Errno 2] No such file"],
+//  "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
+//  "operations": ["browser","http","db","resource.script"]
+// }
+// ```
+//
+//  NOTE YAML serializer creates a sub-object for embedded structures (i.e. all fields in TransactionJobCommon
+//  will appear as
+// ```
+
 type TransactionJobV2 struct {
 	// The project profiles
 	ProjectDistribution []ProjectProfile
 	// TransactionJobCommon Common transaction job parameters
-	TransactionJobCommon
+	TransactionJobCommon `yaml:"transactionJobCommon"`
 }
 
+// transactionLoadTester is used to drive a transaction load test
 type transactionLoadTester struct {
 	url                   string
 	transactionParams     TransactionJobCommon
