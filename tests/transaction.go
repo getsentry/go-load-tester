@@ -78,7 +78,7 @@ type TransactionJob struct {
 	// `Now` and `Now-TransactionTimestampSpread`
 	TransactionTimestampSpread utils.StringDuration `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
 	// TransactionJobCommon Common transaction job parameters
-	TransactionJobCommon `yaml:"transactionJobCommon"`
+	TransactionJobCommon `yaml:"transactionJobCommon,inline"`
 }
 
 // TimestampHistogramBucket represents a bucket in a timestamp histogram
@@ -90,6 +90,7 @@ type TransactionJob struct {
 //    { "ratio": 3, "maxDelay": "10s"},
 //	  { "ratio": 2, "maxDelay": "20s"}
 // ]
+// ```
 //  In the example below we have the cumulative ratio 5 + 3 + 2 = 10
 //  The request will be generated so that, on average, for every 10 requests
 //  5 will be in the first bucket, 3 in the second and the rest of 2 in the third,
@@ -98,7 +99,7 @@ type TransactionJob struct {
 //  **Note:** the ratio can be any positive numbers (including 0 if you want to skip an interval),
 //  they do not have to add up to 10 (as in the example) or any other number, the
 //  same ratio would be achieved by using 0.5,0.3,0.2 or 50,30,20.
-// ```
+//
 type TimestampHistogramBucket struct {
 	// Ratio is the relative frequency of requests in this bucket, relative to all other buckets
 	Ratio float64 `json:"ratio" yaml:"ratio"`
@@ -130,7 +131,7 @@ type ProjectProfile struct {
 	// Relative frequency of project from this profile in relation with projects from other profiles
 	RelativeFreqRatio float64 `json:"relativeFreqRatio" yaml:"relativeFreqRatio"`
 	// The timestamp histogram for projects in this profile
-	TimestampHistogram []TimestampHistogramBucket `json:"timestampProfiles" yaml:"timestampProfiles"`
+	TimestampHistogram []TimestampHistogramBucket `json:"timestampHistogram" yaml:"TimestampHistogram"`
 }
 
 func (pp ProjectProfile) GetNumProjects() int {
@@ -187,9 +188,9 @@ func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
 
 type TransactionJobV2 struct {
 	// The project profiles
-	ProjectDistribution []ProjectProfile
+	ProjectDistribution []ProjectProfile `json:"projectDistribution" yaml:"projectDistribution"`
 	// TransactionJobCommon Common transaction job parameters
-	TransactionJobCommon `yaml:"transactionJobCommon"`
+	TransactionJobCommon `yaml:"transactionJobCommon,inline"`
 }
 
 // transactionLoadTester is used to drive a transaction load test
@@ -265,7 +266,7 @@ func timeSpreadGenerator(projectProfiles []ProjectProfile) func(profileIdx int) 
 		maxDelay time.Duration
 	}
 	profiles := make([][]cumulatedRatio, 0, len(projectProfiles))
-	for profileIdx := 0; profileIdx < len(profiles); profileIdx++ {
+	for profileIdx := 0; profileIdx < len(projectProfiles); profileIdx++ {
 		currentHistogram := projectProfiles[profileIdx].TimestampHistogram
 		val := make([]cumulatedRatio, 0, len(currentHistogram))
 		var acc float64
@@ -287,7 +288,7 @@ func timeSpreadGenerator(projectProfiles []ProjectProfile) func(profileIdx int) 
 		// first bucket starts at delay=0
 		var lowerBound int64 = 0
 		for idx := 0; idx < len(histogram); idx++ {
-			if histogram[idx].upTo <= val {
+			if histogram[idx].upTo >= val {
 				upperBound := int64(histogram[idx].maxDelay)
 				// get a delay within our histogram bucket
 				delay := lowerBound + rand.Int63n(upperBound-lowerBound)
