@@ -67,9 +67,6 @@ type TransactionJobCommon struct {
 //  "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
 //  "operations": ["browser","http","db","resource.script"]
 // }
-//
-//  NOTE YAML serializer creates a sub-object for embedded structures (i.e. all fields in TransactionJobCommon
-//  will appear as
 // ```
 type TransactionJob struct {
 	// NumProjects to use in the requests
@@ -77,7 +74,7 @@ type TransactionJob struct {
 	// TransactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between
 	// `Now` and `Now-TransactionTimestampSpread`
 	TransactionTimestampSpread utils.StringDuration `json:"transactionTimestampSpread,omitempty" yaml:"transactionTimestampSpread,omitempty"`
-	// TransactionJobCommon Common transaction job parameters
+	// TransactionJobCommon embedded fields, see TransactionJobCommon documentation
 	TransactionJobCommon `yaml:"transactionJobCommon,inline"`
 }
 
@@ -88,7 +85,7 @@ type TransactionJob struct {
 // [
 //    { "ratio": 5, "maxDelay": "1s"},
 //    { "ratio": 3, "maxDelay": "10s"},
-//	  { "ratio": 2, "maxDelay": "20s"}
+//    { "ratio": 2, "maxDelay": "20s"}
 // ]
 // ```
 //  In the example below we have the cumulative ratio 5 + 3 + 2 = 10
@@ -99,6 +96,7 @@ type TransactionJob struct {
 //  **Note:** the ratio can be any positive numbers (including 0 if you want to skip an interval),
 //  they do not have to add up to 10 (as in the example) or any other number, the
 //  same ratio would be achieved by using 0.5,0.3,0.2 or 50,30,20.
+//  @doc({"scope":"job"})
 //
 type TimestampHistogramBucket struct {
 	// Ratio is the relative frequency of requests in this bucket, relative to all other buckets
@@ -124,6 +122,7 @@ type TimestampHistogramBucket struct {
 // In other words considering that projects 1,2 belong to bucket 1, projects 3,4,5 to bucket 2 and
 // projects 6,7,8,9 to bucket 3 here's a perfect distribution of events for the profile above
 // 1 1 1 1  2 2 2 2  3 3  4 4  5  5  6  7  8  9
+// @doc({"scope":"job"})
 //
 type ProjectProfile struct {
 	// NumProjects number of projects that use this profile
@@ -153,7 +152,7 @@ func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
 //      "timestampHistogram": [
 //        { "ratio": 5, "maxDelay": "1s"},
 //        { "ratio": 3, "maxDelay": "10s"},
-//	      { "ratio": 2, "maxDelay": "20s"}
+//        { "ratio": 2, "maxDelay": "20s"},
 //      ]
 //    },
 //    {
@@ -181,15 +180,10 @@ func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
 //  "operations": ["browser","http","db","resource.script"]
 // }
 // ```
-//
-//  NOTE YAML serializer creates a sub-object for embedded structures (i.e. all fields in TransactionJobCommon
-//  will appear as
-// ```
-
 type TransactionJobV2 struct {
 	// The project profiles
 	ProjectDistribution []ProjectProfile `json:"projectDistribution" yaml:"projectDistribution"`
-	// TransactionJobCommon Common transaction job parameters
+	// TransactionJobCommon embedded fields, see TransactionJobCommon documentation
 	TransactionJobCommon `yaml:"transactionJobCommon,inline"`
 }
 

@@ -102,6 +102,45 @@ Below only the `config/params` object and `test_type/testType` field will be des
 everything else is common and was documented above.
 
 
+## MetricBucketJob
+
+ MetricBucketJob is how a metricBucket job is parametrized
+ example:
+ ```json
+ {
+   "numMetricNames": 100,
+   "numProjects": 1000,
+   "numDistributions": 7,
+   "numGauges": 0,
+   "numSets": 3,
+   "numCounters": 8,
+   "minMetricsInDistribution": 4,
+   "maxMetricsInDistribution": 25,
+   "minMetricsInSets": 4,
+   "maxMetricsInSets": 30,
+   "numTagsPerMetric": 5,
+   "numValuesPerTag": 3
+ }
+ ```
+
+
+| field               | description     |
+|---------------------|-----------------|
+| numMetricNames | numMetricNames represents the total number of metric names that will be generated |
+| numProjects | numProjects represents the number of projects that will be used for the metric messages |
+| numDistributions | numDistributions created in each messages |
+| numGauges | numberGauges created in each message |
+| numSets | numSets created in each messages |
+| numCounters | numCounters created in each message |
+| minMetricsInDistribution | minMetricsInDistribution the minimum number of metrics created in each distribution bucket |
+| maxMetricsInDistribution | maxMetricsInDistribution the maximum number of metrics created in each distribution bucket |
+| minMetricsInSets | minMetricsInSets the minimum number of metrics created in each set |
+| maxMetricsInSets | maxMetricsInSets the maximum number of metrics created in each set |
+| numTagsPerMetric | numTagsPerMetric Number of tags created for each bucket  To make things predictable each bucket will contain the all the tags  The number of total buckets can be calculated as NumTagsPerMetric^NumValuesPerTag |
+| numValuesPerTag | numValuesPerTag how many distinct values are generated for each tag |
+
+
+
 ## ProjectConfigJob
 
  ProjectConfigJob is how a projectConfigJob is parametrized
@@ -175,6 +214,31 @@ everything else is common and was documented above.
 
 
 
+## TransactionJobCommon
+
+ TransactionJobCommon represents the common parameters for transactions jobs (both V1 and V2)
+ NOTE: No YAML support (yaml unlike json does not flatten embedded structures)
+
+
+| field               | description     |
+|---------------------|-----------------|
+| transactionDurationMax | transactionDurationMax the maximum duration for a transactionJob |
+| transactionDurationMin | transactionDurationMin the minimum duration for a transactionJob |
+| minSpans | minSpans specifies the minimum number of spans generated in a transactionJob |
+| maxSpans | maxSpans specifies the maximum number of spans generated in a transactionJob |
+| numReleases | numReleases specifies the maximum number of unique releases generated in a test |
+| numUsers | numUsers specifies the maximum number of unique users generated in a test |
+| minBreadcrumbs | minBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test |
+| maxBreadcrumbs | maxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test |
+| breadcrumbCategories | breadcrumbCategories the categories used for breadcrumbs (if not specified defaults will be used *) |
+| breadcrumbLevels | breadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *) |
+| breadcrumbsTypes | breadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *) |
+| breadcrumbMessages | breadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *) |
+| measurements | measurements specifies measurements to be used (if not specified NO measurements will be generated) |
+| operations | operations specifies the operations to be used (if not specified NO operations will be generated) |
+
+
+
 ## TransactionJob
 
  TransactionJob is how a transactionJob load test is parameterized
@@ -204,20 +268,119 @@ everything else is common and was documented above.
 | field               | description     |
 |---------------------|-----------------|
 | numProjects | numProjects to use in the requests |
-| transactionDurationMax | transactionDurationMax the maximum duration for a transactionJob |
-| transactionDurationMin | transactionDurationMin the minimum duration for a transactionJob |
 | transactionTimestampSpread | transactionTimestampSpread the spread (from Now) of the timestamp, generated transactions will have timestamps between  `Now` and `Now-TransactionTimestampSpread` |
-| minSpans | minSpans specifies the minimum number of spans generated in a transactionJob |
-| maxSpans | maxSpans specifies the maximum number of spans generated in a transactionJob |
-| numReleases | numReleases specifies the maximum number of unique releases generated in a test |
-| numUsers | numUsers specifies the maximum number of unique users generated in a test |
-| minBreadcrumbs | minBreadcrumbs specifies the minimum number of breadcrumbs that will be generated in a test |
-| maxBreadcrumbs | maxBreadcrumbs specifies the maximum number of breadcrumbs that will be generated in a test |
-| breadcrumbCategories | breadcrumbCategories the categories used for breadcrumbs (if not specified defaults will be used *) |
-| breadcrumbLevels | breadcrumbLevels specifies levels used for breadcrumbs (if not specified defaults will be used *) |
-| breadcrumbsTypes | breadcrumbsTypes specifies the types used for breadcrumbs (if not specified defaults will be used *) |
-| breadcrumbMessages | breadcrumbMessages specifies messages set in breadcrumbs (if not specified defaults will be used *) |
-| measurements | measurements specifies measurements to be used (if not specified NO measurements will be generated) |
-| operations | operations specifies the operations to be used (if not specified NO operations will be generated) |
+|  | transactionJobCommon embedded fields, see TransactionJobCommon documentation |
+
+
+
+## TimestampHistogramBucket
+
+ TimestampHistogramBucket represents a bucket in a timestamp histogram
+ An array of buckets fully defines a timestamp histogram as in the example below.
+ e.g. consider the following histogram (in json format):
+ ```json
+ [
+    { "ratio": 5, "maxDelay": "1s"},
+    { "ratio": 3, "maxDelay": "10s"},
+    { "ratio": 2, "maxDelay": "20s"}
+ ]
+ ```
+  In the example below we have the cumulative ratio 5 + 3 + 2 = 10
+  The request will be generated so that, on average, for every 10 requests
+  5 will be in the first bucket, 3 in the second and the rest of 2 in the third,
+  or in other words 50% of the requests will have a timestamp delay of between 0s and 1s,
+  30% will have a timestamp delay of between 1s and 10s and 20% between 10s and 20s
+  **Note:** the ratio can be any positive numbers (including 0 if you want to skip an interval),
+  they do not have to add up to 10 (as in the example) or any other number, the
+  same ratio would be achieved by using 0.5,0.3,0.2 or 50,30,20.
+  
+
+
+
+| field               | description     |
+|---------------------|-----------------|
+| ratio | ratio is the relative frequency of requests in this bucket, relative to all other buckets |
+| maxDelay | maxDelay The upper bound of the bucket, the lower bound is the previous bucket upper bound or 0 for the first bucket |
+
+
+
+## ProjectProfile
+
+ ProjectProfile represents a group of projects with the same relative frequency and the same timestamp histogram
+ A request will get an array of ProjectProfile, the example below further explains how this works:
+ Consider the following example in JSON format (the timestamp histogram was removed since it is not relevant in the
+ current explanation).
+ ```json
+ [
+	 { "numProjects": 2, "relativeFreqRatio": 4},
+	 { "numProjects": 3, "relativeFreqRatio": 2},
+	 { "numProjects": 4, "relativeFreqRatio": 1},
+ ```
+ In the example above we have 3 groups, the total number of projects generated is 10+1+5 = 16
+ Events for a particular project in the first bucket will occur twice as often as events for a
+ particular event in the second bucket and four times as frequent as events for a particular
+ project in the second bucket.
+ In other words considering that projects 1,2 belong to bucket 1, projects 3,4,5 to bucket 2 and
+ projects 6,7,8,9 to bucket 3 here's a perfect distribution of events for the profile above
+ 1 1 1 1  2 2 2 2  3 3  4 4  5  5  6  7  8  9
+ 
+
+
+
+| field               | description     |
+|---------------------|-----------------|
+| numProjects | numProjects number of projects that use this profile |
+| relativeFreqRatio | relative frequency of project from this profile in relation with projects from other profiles |
+| timestampHistogram | the timestamp histogram for projects in this profile |
+
+
+
+## TransactionJobV2
+
+ TransactionJobV2 is how a transactionJobV2 load test is parameterized
+ example:
+ ```json
+ {
+  "projectDistribution: [
+    {
+      "numProjects": 100,
+      "relativeFreqRatio" : 1.0,
+      "timestampHistogram": [
+        { "ratio": 5, "maxDelay": "1s"},
+        { "ratio": 3, "maxDelay": "10s"},
+        { "ratio": 2, "maxDelay": "20s"},
+      ]
+    },
+    {
+      "numProjects": 200,
+      "relativeFreqRatio" : 4.0,
+      "timestampHistogram": [
+        { "ratio": 20, "maxDelay": "1s"},
+        { "ratio": 1, "maxDelay": "5s"}
+      ]
+    }
+  ],
+  "transactionDurationMax":"10m" ,
+  "transactionDurationMin": "1m" ,
+  "minSpans": 5,
+  "maxSpans": 40,
+  "numReleases": 1000 ,
+  "numUsers": 2000,
+  "minBreadcrumbs": 5,
+  "maxBreadcrumbs": 25,
+  "breadcrumbCategories": ["auth", "web-request", "query"],
+  "breadcrumbLevels": ["fatal", "error", "warning", "info", "debug"],
+  "breadcrumbsTypes": ["default", "http", "error"] ,
+  "breadcrumbMessages": [ "Authenticating the user_name", "IOError: [Errno 2] No such file"],
+  "measurements": ["fp","fcp","lcp","fid","cls","ttfb"],
+  "operations": ["browser","http","db","resource.script"]
+ }
+ ```
+
+
+| field               | description     |
+|---------------------|-----------------|
+| projectDistribution | the project profiles |
+|  | transactionJobCommon embedded fields, see TransactionJobCommon documentation |
 
 

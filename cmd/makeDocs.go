@@ -7,6 +7,7 @@ Generate static documentation of Job definitions
 package cmd
 
 import (
+	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -14,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -38,7 +40,7 @@ type StructDefinition struct {
 }
 
 // structFilter used to filter the structures returned (true means type will not be filtered)
-type structFilter func(typeSpec *ast.TypeSpec, structSpec *ast.StructType) bool
+type structFilter func(typeSpec *ast.TypeSpec, structSpec *ast.StructType, typeDoc string) bool
 
 var makeDocsParams struct {
 	sourceDirectory string
@@ -103,7 +105,7 @@ func updateTestDocument() {
 		log.Error().Err(err).Msg("Error trying to find source files")
 	}
 
-	jobDefinitions, err := extractStructDefinitions(dir, filterJobs, files)
+	jobDefinitions, err := extractStructDefinitions(dir, filterJobsAndHelperTypes, files)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Error trying to extract structure definitions from code")
@@ -144,13 +146,21 @@ func writeTemplate(outStream io.Writer, jobDefinitions []StructDefinition) error
 	return nil
 }
 
-func filterJobs(typeSpec *ast.TypeSpec, structSpec *ast.StructType) bool {
+func filterJobsAndHelperTypes(typeSpec *ast.TypeSpec, structSpec *ast.StructType, typeDoc string) bool {
 	if typeSpec == nil || typeSpec.Name == nil || structSpec == nil {
 		return false
 	}
 	if strings.Contains(typeSpec.Name.Name, "Job") &&
 		!strings.Contains(typeSpec.Name.Name, "Raw") {
 		return true
+	}
+	// look for @doc annotations
+	annotation := getDocAnnotation(typeDoc)
+	if annotation != nil {
+		scope := annotation["scope"]
+		if scope == "job" {
+			return true
+		}
 	}
 	return false
 }
@@ -190,11 +200,12 @@ func getStructTypeSpec(decl ast.Decl, filter structFilter) (*StructDefinition, b
 		return nil, false
 	}
 	if genDecl.Tok == token.TYPE && genDecl.Specs != nil && len(genDecl.Specs) == 1 {
+		doc := getDoc(genDecl.Doc, false)
 		typeSpec, ok := genDecl.Specs[0].(*ast.TypeSpec)
 		if ok {
 			structType, ok := typeSpec.Type.(*ast.StructType)
 			if ok {
-				if !filter(typeSpec, structType) {
+				if !filter(typeSpec, structType, doc) {
 					return nil, false
 				}
 				var fieldsDoc []FieldDefinition = nil
@@ -210,7 +221,7 @@ func getStructTypeSpec(decl ast.Decl, filter structFilter) (*StructDefinition, b
 
 				return &StructDefinition{
 					TypeName:      typeSpec.Name.Name,
-					Documentation: getDoc(genDecl.Doc, false),
+					Documentation: removeDocAnnotation(doc),
 					Fields:        fieldsDoc,
 				}, true
 			}
@@ -301,7 +312,63 @@ func getCodeFiles() (string, []os.DirEntry, error) {
 	return testsFileDir, retVal, nil
 }
 
+var docAnnotation *regexp.Regexp
+
+func getDocAnnotation(doc string) map[string]string {
+	var retVal map[string]string
+	s := docAnnotation.FindString(doc)
+	if len(s) >= 6 {
+		annotationString := s[5 : len(s)-1]
+		// try to figure out if we have a dictionary
+		if strings.Contains(annotationString, "{") {
+			err := json.Unmarshal([]byte(annotationString), &retVal)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to deserialize doc dictionary")
+				return nil // an error occured trying to deserialize a
+			}
+			return retVal
+		}
+		// only some string remove " at beginning and end (if exists)
+		if strings.HasPrefix(annotationString, "\"") {
+			annotationString = annotationString[1:]
+		}
+		if strings.HasSuffix(annotationString, "\"") {
+			annotationString = annotationString[:len(annotationString)-1]
+		}
+		retVal = make(map[string]string)
+		retVal["data"] = annotationString
+	}
+
+	return retVal
+}
+
+// cleans up string of doc annotations so that they do not appear in documentation.
+func removeDocAnnotation(doc string) string {
+	for {
+		location := docAnnotation.FindStringIndex(doc)
+		if location == nil {
+			return doc // no doc found return the input string
+		}
+		if location[0] == 0 {
+			// the doc annotation is at the beginning just return the string after
+			doc = doc[location[1]:]
+
+		} else if location[1] == len(location) {
+			// the doc annotation is at the end, just return the beginning
+			doc = doc[:location[0]]
+
+		} else {
+			start := doc[:location[0]]
+			end := doc[location[1]:]
+			doc = start + end
+		}
+
+	}
+
+}
+
 func init() {
+	docAnnotation, _ = regexp.Compile(`@doc\([^()]*\)`)
 	makeDocs.Flags().StringVar(&makeDocsParams.sourceDirectory, "source-dir", "", "directory for source files (omit if current directory)")
 	rootCmd.AddCommand(makeDocs)
 }
