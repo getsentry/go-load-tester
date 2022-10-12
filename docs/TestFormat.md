@@ -156,7 +156,7 @@ everything else is common and was documented above.
    "projectInvalidationRatio": 0.001,
    "RelayPublicKey": "ftFuDNBFm8-kPpuCuaWMio_mJAW2txCFCsaLMHn2vv0",
    "RelayPrivateKey": "uZUtRaayN8uuuTTOjbs5EDfqWNwyDfFro6TERx6Wfhs",
-   "RelayId": "aaa12340-a123-123b-4567-0afe1f27e066",
+   "RelayId": "aaa12340-a123-123b-4567-0afe1f27e066"
  }
  ```
 
@@ -284,6 +284,7 @@ everything else is common and was documented above.
     { "ratio": 3, "maxDelay": "10s"},
     { "ratio": 2, "maxDelay": "20s"}
  ]
+
  ```
   In the example below we have the cumulative ratio 5 + 3 + 2 = 10
   The request will be generated so that, on average, for every 10 requests
@@ -314,8 +315,10 @@ everything else is common and was documented above.
  [
 	 { "numProjects": 2, "relativeFreqRatio": 4},
 	 { "numProjects": 3, "relativeFreqRatio": 2},
-	 { "numProjects": 4, "relativeFreqRatio": 1},
+	 { "numProjects": 4, "relativeFreqRatio": 1}
+ ]
  ```
+
  In the example above we have 3 groups, the total number of projects generated is 10+1+5 = 16
  Events for a particular project in the first bucket will occur twice as often as events for a
  particular event in the second bucket and four times as frequent as events for a particular
@@ -341,7 +344,7 @@ everything else is common and was documented above.
  example:
  ```json
  {
-  "projectDistribution: [
+  "projectDistribution": [
     {
       "numProjects": 100,
       "relativeFreqRatio" : 1.0,

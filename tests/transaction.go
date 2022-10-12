@@ -87,6 +87,7 @@ type TransactionJob struct {
 //    { "ratio": 3, "maxDelay": "10s"},
 //    { "ratio": 2, "maxDelay": "20s"}
 // ]
+//
 // ```
 //  In the example below we have the cumulative ratio 5 + 3 + 2 = 10
 //  The request will be generated so that, on average, for every 10 requests
@@ -113,8 +114,10 @@ type TimestampHistogramBucket struct {
 // [
 //	 { "numProjects": 2, "relativeFreqRatio": 4},
 //	 { "numProjects": 3, "relativeFreqRatio": 2},
-//	 { "numProjects": 4, "relativeFreqRatio": 1},
+//	 { "numProjects": 4, "relativeFreqRatio": 1}
+// ]
 // ```
+//
 // In the example above we have 3 groups, the total number of projects generated is 10+1+5 = 16
 // Events for a particular project in the first bucket will occur twice as often as events for a
 // particular event in the second bucket and four times as frequent as events for a particular
@@ -145,7 +148,7 @@ func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
 // example:
 // ```json
 // {
-//  "projectDistribution: [
+//  "projectDistribution": [
 //    {
 //      "numProjects": 100,
 //      "relativeFreqRatio" : 1.0,
