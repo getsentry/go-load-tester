@@ -61,9 +61,9 @@ type DeviceContext struct {
 	Timezone            string  `json:"timezone,omitempty"`
 	Type                string  `json:"type,omitempty"`
 	// in locust tester but not in relay
-	//ScreenWidthPixels  uint64
-	//ScreenHeightPixels uint64
-	//Locale             string
+	// ScreenWidthPixels  uint64
+	// ScreenHeightPixels uint64
+	// Locale             string
 }
 
 type AppContext struct {
@@ -414,6 +414,10 @@ func Flip() bool {
 
 func toUtcString(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func FromUtCString(date string) (time.Time, error) {
+	return time.Parse(time.RFC3339, date)
 }
 
 func toUnixTimestamp(t time.Time) float64 {

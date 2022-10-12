@@ -15,8 +15,8 @@ var transactionJob = TransactionJob{
 	NumProjects:                1,
 	TransactionTimestampSpread: utils.StringDuration(3 * time.Minute),
 	TransactionJobCommon: TransactionJobCommon{
-		TransactionDurationMax: utils.StringDuration(time.Minute),
-		TransactionDurationMin: utils.StringDuration(2 * time.Minute),
+		TransactionDurationMin: utils.StringDuration(time.Minute),
+		TransactionDurationMax: utils.StringDuration(2 * time.Minute),
 		MinSpans:               4,
 		MaxSpans:               5,
 		NumReleases:            6,
@@ -36,8 +36,8 @@ var transactionJobRawJSON = `
 {
 	"numProjects":1,
 	"transactionTimestampSpread":"3m",
-	"transactionDurationMax":"1m",
-	"transactionDurationMin":"2m",
+	"transactionDurationMax":"2m",
+	"transactionDurationMin":"1m",
 	"minSpans":4,
 	"maxSpans":5,
 	"numReleases":6,
@@ -56,8 +56,8 @@ var transactionJobRawJSON = `
 var transactionJobRawYAML = `
 numProjects: 1
 transactionTimestampSpread: 3m0s
-transactionDurationMax: 1m0s
-transactionDurationMin: 2m0s
+transactionDurationMax: 2m0s
+transactionDurationMin: 1m0s
 minSpans: 4
 maxSpans: 5
 numReleases: 6
@@ -98,8 +98,8 @@ var transactionJobV2 = TransactionJobV2{
 		},
 	},
 	TransactionJobCommon: TransactionJobCommon{
-		TransactionDurationMax: utils.StringDuration(time.Minute),
-		TransactionDurationMin: utils.StringDuration(2 * time.Minute),
+		TransactionDurationMin: utils.StringDuration(time.Minute),
+		TransactionDurationMax: utils.StringDuration(2 * time.Minute),
 		MinSpans:               4,
 		MaxSpans:               5,
 		NumReleases:            6,
@@ -126,8 +126,8 @@ var transactionJobV2RawJSON = `
 		]
 	  }
 	],
-	"transactionDurationMax":"1m",
-	"transactionDurationMin":"2m",
+	"transactionDurationMax":"2m",
+	"transactionDurationMin":"1m",
 	"minSpans":4,
 	"maxSpans":5,
 	"numReleases":6,
@@ -150,8 +150,8 @@ projectDistribution:
   TimestampHistogram:
   - ratio: 5
     maxDelay: 1s
-transactionDurationMax: 1m0s
-transactionDurationMin: 2m0s
+transactionDurationMax: 2m0s
+transactionDurationMin: 1m0s
 minSpans: 4
 maxSpans: 5
 numReleases: 6
@@ -375,4 +375,47 @@ func TestTimespreadGenerator(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestTransactionGeneration(t *testing.T) {
+	var tc = transactionJob.TransactionJobCommon
+
+	generator := TransactionGenerator(tc)
+
+	tr := generator(5 * time.Second)
+
+	if !isID(tr.EventId) {
+		t.Error("invalid eventID")
+	}
+
+	timestamp, err := FromUtCString(tr.Timestamp)
+	if err != nil {
+		t.Errorf("invalid timestamp %s", tr.Timestamp)
+	}
+	startTimestamp, err := FromUtCString(tr.StartTimestamp)
+	if err != nil {
+		t.Errorf("invalid startTimestamp %s", tr.StartTimestamp)
+	}
+
+	transactionRange := time.Duration(tc.TransactionDurationMax - tc.TransactionDurationMin)
+
+	if startTimestamp.Before(timestamp.Add(-transactionRange)) || startTimestamp.After(timestamp) {
+		t.Error("Bad start timestamp")
+	}
+
+	numBreadcurmbs := uint64(len(tr.Breadcrumbs))
+
+	if numBreadcurmbs < tc.MinBreadcrumbs || numBreadcurmbs > tc.MaxBreadcrumbs {
+		t.Errorf("Bad number of breadcrumbs %d not in [%d,%d]]", numBreadcurmbs, tc.MinBreadcrumbs, tc.MaxBreadcrumbs)
+	}
+
+	numSpans := uint64(len(tr.Spans))
+
+	if numSpans < tc.MinSpans || numSpans > tc.MaxSpans {
+		t.Errorf("Bad number of breadcrumbs %d not in [%d,%d]]", numBreadcurmbs, tc.MinBreadcrumbs, tc.MaxBreadcrumbs)
+	}
+}
+
+func isID(s string) bool {
+	return len(s) == 32
 }
