@@ -416,7 +416,7 @@ func toUtcString(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-func FromUtCString(date string) (time.Time, error) {
+func FromUTCString(date string) (time.Time, error) {
 	return time.Parse(time.RFC3339, date)
 }
 
