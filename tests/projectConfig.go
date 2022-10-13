@@ -32,7 +32,7 @@ import (
 //   "projectInvalidationRatio": 0.001,
 //   "RelayPublicKey": "ftFuDNBFm8-kPpuCuaWMio_mJAW2txCFCsaLMHn2vv0",
 //   "RelayPrivateKey": "uZUtRaayN8uuuTTOjbs5EDfqWNwyDfFro6TERx6Wfhs",
-//   "RelayId": "aaa12340-a123-123b-4567-0afe1f27e066",
+//   "RelayId": "aaa12340-a123-123b-4567-0afe1f27e066"
 // }
 // ```
 type ProjectConfigJob struct {
