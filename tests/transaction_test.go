@@ -87,11 +87,11 @@ operations:
 var transactionJobV2 = TransactionJobV2{
 	ProjectDistribution: []ProjectProfile{
 		{
-			NumProjects:       100,
-			RelativeFreqRatio: 1.0,
+			NumProjects:        100,
+			RelativeFreqWeight: 1.0,
 			TimestampHistogram: []TimestampHistogramBucket{
 				{
-					Ratio:    5.0,
+					Weight:   5.0,
 					MaxDelay: utils.StringDuration(time.Second),
 				},
 			},
@@ -120,9 +120,9 @@ var transactionJobV2RawJSON = `
 	"projectDistribution": [
 	  {
 		"numProjects": 100,
-		"relativeFreqRatio" : 1.0,
+		"relativeFreqWeight" : 1.0,
 		"timestampHistogram": [
-		  { "ratio": 5.0, "maxDelay": "1s"}
+		  { "weight": 5.0, "maxDelay": "1s"}
 		]
 	  }
 	],
@@ -146,9 +146,9 @@ var transactionJobV2RawJSON = `
 var transactionJobV2RawYAML = `
 projectDistribution:
 - numProjects: 100
-  relativeFreqRatio: 1
+  relativeFreqWeight: 1
   TimestampHistogram:
-  - ratio: 5
+  - weight: 5
     maxDelay: 1s
 transactionDurationMax: 2m0s
 transactionDurationMin: 1m0s
@@ -306,47 +306,47 @@ func TestTransactionV2YamlDeserialization(t *testing.T) {
 func TestTimespreadGenerator(t *testing.T) {
 	var profiles []ProjectProfile = []ProjectProfile{
 		{
-			NumProjects:       1,   // unused in test
-			RelativeFreqRatio: 1.0, // unused in test
+			NumProjects:        1,   // unused in test
+			RelativeFreqWeight: 1.0, // unused in test
 			TimestampHistogram: []TimestampHistogramBucket{
 				{
-					Ratio:    0, // effectively disable this bucket
+					Weight:   0, // effectively disable this bucket
 					MaxDelay: utils.StringDuration(time.Second),
 				},
 				{
-					Ratio:    1,
+					Weight:   1,
 					MaxDelay: utils.StringDuration(time.Minute),
 				},
 			},
 		},
 		{
-			NumProjects:       1,   // unused in test
-			RelativeFreqRatio: 1.0, // unused in test
+			NumProjects:        1,   // unused in test
+			RelativeFreqWeight: 1.0, // unused in test
 			TimestampHistogram: []TimestampHistogramBucket{
 				{
-					Ratio:    1,
+					Weight:   1,
 					MaxDelay: utils.StringDuration(time.Second),
 				},
 				{
-					Ratio:    0, // disable bucket
+					Weight:   0, // disable bucket
 					MaxDelay: utils.StringDuration(time.Minute),
 				},
 			},
 		},
 		{
-			NumProjects:       1,   // unused in test
-			RelativeFreqRatio: 1.0, // unused in test
+			NumProjects:        1,   // unused in test
+			RelativeFreqWeight: 1.0, // unused in test
 			TimestampHistogram: []TimestampHistogramBucket{
 				{
-					Ratio:    0,
+					Weight:   0,
 					MaxDelay: utils.StringDuration(time.Second),
 				},
 				{
-					Ratio:    1, // disable bucket
+					Weight:   1, // disable bucket
 					MaxDelay: utils.StringDuration(time.Minute),
 				},
 				{
-					Ratio:    0, // disable bucket
+					Weight:   0, // disable bucket
 					MaxDelay: utils.StringDuration(2 * time.Minute),
 				},
 			},
@@ -388,11 +388,11 @@ func TestTransactionGeneration(t *testing.T) {
 		t.Error("invalid eventID")
 	}
 
-	timestamp, err := FromUtCString(tr.Timestamp)
+	timestamp, err := FromUTCString(tr.Timestamp)
 	if err != nil {
 		t.Errorf("invalid timestamp %s", tr.Timestamp)
 	}
-	startTimestamp, err := FromUtCString(tr.StartTimestamp)
+	startTimestamp, err := FromUTCString(tr.StartTimestamp)
 	if err != nil {
 		t.Errorf("invalid startTimestamp %s", tr.StartTimestamp)
 	}

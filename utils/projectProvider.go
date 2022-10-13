@@ -22,7 +22,7 @@ import (
 // than each of the 3 project in the second group.
 type ProjectFreqProfile interface {
 	GetNumProjects() int
-	GetRelativeFreqRatio() float64
+	GetRelativeFreqWeight() float64
 }
 
 // projectChoiceRatio is a utility type that makes it easier to generate project
@@ -226,9 +226,9 @@ func projectsRequired(profiles []ProjectFreqProfile) int {
 	return retVal
 }
 
-// FreqProfilesToProjectChoiceRatios changes from []ProjectFreqProfile which is easier to specify
+// FreqProfilesToProjectChoiceWeights changes from []ProjectFreqProfile which is easier to specify
 // to []ProjectChoiceRatio which is easier to work with when generating random project ids
-func freqProfilesToProjectChoiceRatios(profiles []ProjectFreqProfile) []projectChoiceRatio {
+func freqProfilesToProjectChoiceWeights(profiles []ProjectFreqProfile) []projectChoiceRatio {
 	if profiles == nil || len(profiles) == 0 {
 		return make([]projectChoiceRatio, 0)
 	}
@@ -238,7 +238,7 @@ func freqProfilesToProjectChoiceRatios(profiles []ProjectFreqProfile) []projectC
 	for idx := 0; idx < len(profiles); idx++ {
 		numProjects := profiles[idx].GetNumProjects()
 		lastProjectIdx = lastProjectIdx + numProjects
-		aggregatedRatio := profiles[idx].GetRelativeFreqRatio() * float64(numProjects)
+		aggregatedRatio := profiles[idx].GetRelativeFreqWeight() * float64(numProjects)
 		if idx > 0 {
 			aggregatedRatio += retVal[idx-1].aggregatedRatio
 		}
@@ -251,7 +251,7 @@ func freqProfilesToProjectChoiceRatios(profiles []ProjectFreqProfile) []projectC
 }
 
 func indexFromProfiles(profiles []ProjectFreqProfile) (int, int, error) {
-	freqProfiles := freqProfilesToProjectChoiceRatios(profiles)
+	freqProfiles := freqProfilesToProjectChoiceWeights(profiles)
 	numProfiles := len(freqProfiles)
 
 	if numProfiles == 0 {

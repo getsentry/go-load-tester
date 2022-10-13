@@ -83,25 +83,25 @@ type TransactionJob struct {
 // e.g. consider the following histogram (in json format):
 // ```json
 // [
-//    { "ratio": 5, "maxDelay": "1s"},
-//    { "ratio": 3, "maxDelay": "10s"},
-//    { "ratio": 2, "maxDelay": "20s"}
+//    { "weight": 5, "maxDelay": "1s"},
+//    { "weight": 3, "maxDelay": "10s"},
+//    { "weight": 2, "maxDelay": "20s"}
 // ]
 //
 // ```
-//  In the example below we have the cumulative ratio 5 + 3 + 2 = 10
+//  In the example below we have the cumulative weight 5 + 3 + 2 = 10
 //  The request will be generated so that, on average, for every 10 requests
 //  5 will be in the first bucket, 3 in the second and the rest of 2 in the third,
 //  or in other words 50% of the requests will have a timestamp delay of between 0s and 1s,
 //  30% will have a timestamp delay of between 1s and 10s and 20% between 10s and 20s
-//  **Note:** the ratio can be any positive numbers (including 0 if you want to skip an interval),
+//  **Note:** the weight can be any positive numbers (including 0 if you want to skip an interval),
 //  they do not have to add up to 10 (as in the example) or any other number, the
-//  same ratio would be achieved by using 0.5,0.3,0.2 or 50,30,20.
+//  same weight would be achieved by using 0.5,0.3,0.2 or 50,30,20.
 //  @doc({"scope":"job"})
 //
 type TimestampHistogramBucket struct {
-	// Ratio is the relative frequency of requests in this bucket, relative to all other buckets
-	Ratio float64 `json:"ratio" yaml:"ratio"`
+	// Weight is the relative frequency of requests in this bucket, relative to all other buckets
+	Weight float64 `json:"weight" yaml:"weight"`
 	// MaxDelay The upper bound of the bucket, the lower bound is the previous bucket upper bound or 0 for the first bucket
 	MaxDelay utils.StringDuration `json:"maxDelay" yaml:"maxDelay"`
 }
@@ -112,9 +112,9 @@ type TimestampHistogramBucket struct {
 // current explanation).
 // ```json
 // [
-//	 { "numProjects": 2, "relativeFreqRatio": 4},
-//	 { "numProjects": 3, "relativeFreqRatio": 2},
-//	 { "numProjects": 4, "relativeFreqRatio": 1}
+//	 { "numProjects": 2, "relativeFreqWeight": 4},
+//	 { "numProjects": 3, "relativeFreqWeight": 2},
+//	 { "numProjects": 4, "relativeFreqWeight": 1}
 // ]
 // ```
 //
@@ -131,7 +131,7 @@ type ProjectProfile struct {
 	// NumProjects number of projects that use this profile
 	NumProjects int `json:"numProjects" yaml:"numProjects"`
 	// Relative frequency of project from this profile in relation with projects from other profiles
-	RelativeFreqRatio float64 `json:"relativeFreqRatio" yaml:"relativeFreqRatio"`
+	RelativeFreqWeight float64 `json:"relativeFreqWeight" yaml:"relativeFreqWeight"`
 	// The timestamp histogram for projects in this profile
 	TimestampHistogram []TimestampHistogramBucket `json:"timestampHistogram" yaml:"TimestampHistogram"`
 }
@@ -140,8 +140,8 @@ func (pp ProjectProfile) GetNumProjects() int {
 	return pp.NumProjects
 }
 
-func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
-	return pp.RelativeFreqRatio
+func (pp ProjectProfile) GetRelativeFreqWeight() float64 {
+	return pp.RelativeFreqWeight
 }
 
 // TransactionJobV2 is how a transactionJobV2 load test is parameterized
@@ -151,19 +151,19 @@ func (pp ProjectProfile) GetRelativeFreqRatio() float64 {
 //  "projectDistribution": [
 //    {
 //      "numProjects": 100,
-//      "relativeFreqRatio" : 1.0,
+//      "relativeFreqWeight" : 1.0,
 //      "timestampHistogram": [
-//        { "ratio": 5, "maxDelay": "1s"},
-//        { "ratio": 3, "maxDelay": "10s"},
-//        { "ratio": 2, "maxDelay": "20s"},
+//        { "weight": 5, "maxDelay": "1s"},
+//        { "weight": 3, "maxDelay": "10s"},
+//        { "weight": 2, "maxDelay": "20s"},
 //      ]
 //    },
 //    {
 //      "numProjects": 200,
-//      "relativeFreqRatio" : 4.0,
+//      "relativeFreqWeight" : 4.0,
 //      "timestampHistogram": [
-//        { "ratio": 20, "maxDelay": "1s"},
-//        { "ratio": 1, "maxDelay": "5s"}
+//        { "weight": 20, "maxDelay": "1s"},
+//        { "weight": 1, "maxDelay": "5s"}
 //      ]
 //    }
 //  ],
@@ -258,22 +258,22 @@ func timeSpreadGenerator(projectProfiles []ProjectProfile) func(profileIdx int) 
 
 	// rearrange histograms in a better way for generation, accumulate values from the left, i.e.
 	// calculate integral.
-	type cumulatedRatio struct {
+	type cumulatedWeight struct {
 		upTo     float64
 		maxDelay time.Duration
 	}
-	profiles := make([][]cumulatedRatio, 0, len(projectProfiles))
+	profiles := make([][]cumulatedWeight, 0, len(projectProfiles))
 	for profileIdx := 0; profileIdx < len(projectProfiles); profileIdx++ {
 		currentHistogram := projectProfiles[profileIdx].TimestampHistogram
-		val := make([]cumulatedRatio, 0, len(currentHistogram))
+		val := make([]cumulatedWeight, 0, len(currentHistogram))
 		var acc float64
 		for histIdx := 0; histIdx < len(currentHistogram); histIdx++ {
-			acc += currentHistogram[histIdx].Ratio
-			ratio := cumulatedRatio{
+			acc += currentHistogram[histIdx].Weight
+			weight := cumulatedWeight{
 				upTo:     acc,
 				maxDelay: time.Duration(currentHistogram[histIdx].MaxDelay),
 			}
-			val = append(val, ratio)
+			val = append(val, weight)
 		}
 		profiles = append(profiles, val)
 	}
