@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 	"time"
 
@@ -375,6 +376,70 @@ func TestTimespreadGenerator(t *testing.T) {
 			}
 		}
 	}
+}
+
+// This test is more a sanity test, it is not strictly guaranteed to work since a random distribution
+// may not spread the results as expected but for about 1,000,000 samples we should get an error of less than 0.01,
+// in rare occasions may theoretically fail.
+func TestTimespreadGeneratorAporxEqual(t *testing.T) {
+	const NumInvocations = 1_000_000
+	var profiles []ProjectProfile = []ProjectProfile{
+		{
+			NumProjects:        1,   // unused in test
+			RelativeFreqWeight: 1.0, // unused in test
+			TimestampHistogram: []TimestampHistogramBucket{
+				{
+					Weight:   10, // effectively disable this bucket
+					MaxDelay: utils.StringDuration(time.Second),
+				},
+				{
+					Weight:   5,
+					MaxDelay: utils.StringDuration(time.Minute),
+				},
+				{
+					Weight:   1,
+					MaxDelay: utils.StringDuration(time.Hour),
+				},
+				{
+					Weight:   0.1,
+					MaxDelay: utils.StringDuration(2 * time.Hour),
+				},
+			},
+		},
+	}
+
+	generator := timeSpreadGenerator(profiles)
+	histograms := profiles[0].TimestampHistogram
+	numHistograms := len(histograms)
+	counters := make([]float64, numHistograms)
+	for idx := 0; idx < NumInvocations; idx++ {
+		timestamp := generator(0)
+		for histIdx := 0; histIdx < numHistograms; histIdx++ {
+			maxDelay := time.Duration(histograms[histIdx].MaxDelay)
+			if timestamp <= maxDelay {
+				counters[histIdx]++
+				break
+			}
+		}
+	}
+	var cumulatedWeight float64
+	for histIdx := 0; histIdx < numHistograms; histIdx++ {
+		cumulatedWeight += histograms[histIdx].Weight
+	}
+
+	// muliplying it by cummulatedWeight/Weight*NumSamples should get us to around 1
+	for histIdx := 0; histIdx < numHistograms; histIdx++ {
+		adjustedBucket := (counters[histIdx] * cumulatedWeight) / (histograms[histIdx].Weight * NumInvocations)
+		if !isAboutOne(adjustedBucket, 0.01) {
+			t.Errorf("Expected the adjusted bucket to be about 1 but got %f", adjustedBucket)
+		}
+	}
+
+}
+
+func isAboutOne(val float64, error float64) bool {
+	errorMargin := math.Abs(val * error)
+	return val-errorMargin < 1 && val+errorMargin > 1
 }
 
 func TestTransactionGeneration(t *testing.T) {
