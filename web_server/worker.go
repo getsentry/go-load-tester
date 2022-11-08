@@ -238,7 +238,7 @@ func workerCommandHandler(cmd chan<- tests.TestParams, ctx *gin.Context) {
 
 // createLoadTester creates a loadTester for the passed test parameters
 func createLoadTester(targetUrl string, params tests.TestParams) tests.LoadTester {
-	log.Trace().Msgf("Creating load tester:%v", params)
+	log.Trace().Msgf("Creating load tester:%+v", params)
 	if params.AttackDuration == 0 {
 		// an attack with 0 duration is a stop request
 		log.Info().Msg("Stop command received")

@@ -4,21 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 	"gopkg.in/yaml.v2"
 )
-import "sync"
 
 // TestParams is Implemented by all parameter test classes
 //
 // This is how commands are passed in http requests
 // There are 3 main parts to the params:
-//	1. Details about the attack duration and intensity ( AttackDuration, Per, NumMessages)
+//  1. Details about the attack duration and intensity ( AttackDuration, Per, NumMessages)
 //  2. Type of the attack, (the Name field) used to dispatch the attack to the appropriate targeter
 //  3. Parameters specific to the attack (used by the targeter) Params (structure depends on the targeter used)
-//  The Description field is optional and used for documenting the attack (e.g. in reporting)
+//     The Description field is optional and used for documenting the attack (e.g. in reporting)
 type TestParams struct {
 	Name           string
 	Description    string
@@ -27,6 +27,7 @@ type TestParams struct {
 	NumMessages    int           // number of messages to be sent in Per
 	Per            time.Duration // the unit of duration in which to send NumMessages
 	Params         json.RawMessage
+	Labels         [][]string // key value pairs (can be used to annotate the attack result)
 }
 
 // LoadTesterBuilder is a function that when given a target URL and a read channel of
@@ -123,13 +124,14 @@ var testHandlers = struct {
 // testParamsRaw is used as a utility struct to deserialize test params from JSON and YAML, this is
 // then converted into TestParams which is simpler to work with.
 type testParamsRaw struct {
-	Name           string
-	Description    string
+	Name           string `json:"name" yaml:"name"`
+	Description    string `json:"description" yaml:"description"`
 	TestType       string `json:"testType" yaml:"testType"`
 	Params         json.RawMessage
-	AttackDuration string `json:"attackDuration" yaml:"attackDuration"`
-	NumMessages    int    `json:"numMessages" yaml:"numMessages"`
-	Per            string
+	AttackDuration string     `json:"attackDuration" yaml:"attackDuration"`
+	NumMessages    int        `json:"numMessages" yaml:"numMessages"`
+	Per            string     `json:"per" yaml:"per"`
+	Labels         [][]string `json:"labels" yaml:"labels"`
 }
 
 func (t TestParams) intoRaw() testParamsRaw {
@@ -141,6 +143,7 @@ func (t TestParams) intoRaw() testParamsRaw {
 		Name:           t.Name,
 		Description:    t.Description,
 		Params:         t.Params,
+		Labels:         t.Labels,
 	}
 }
 
@@ -175,6 +178,7 @@ func (raw testParamsRaw) into(result *TestParams) error {
 	result.Name = raw.Name
 	result.Description = raw.Description
 	result.Params = raw.Params
+	result.Labels = raw.Labels
 	return nil
 }
 
