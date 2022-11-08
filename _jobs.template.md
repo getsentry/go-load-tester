@@ -24,6 +24,8 @@ def add_vegeta_test(
         name:           Optional[name],
         description:    Optional[str],
         url:            Optional[str],        
+        produce_report: bool=True,  # used internally in load-starter and not serialized
+        labels:         Union[List[List[str]],Mapping[str,str]],
 )
 ```
 
@@ -40,23 +42,26 @@ In JSON format the request structure is:
   "attackDuration": "5m",
   "numMessages": 100,
   "per": "1s",
-  "params": { "name1":  "value1"}
+  "params": { "name1":  "value1"},
+  "labels": [["l1","v1"],["l2","v2"]]
 }
 ```
 
 There are some inconsistencies in the naming below is the table containing the corresponding conversion 
 between the two formats:
 
-| load-starter | go-load-tester | comment                                                                                                 |
-|--------------|----------------|---------------------------------------------------------------------------------------------------------|
-| duration     | attackDuration | the duration of the attack (using durationsyntax*)                                                  |
-| test_type    | testType       | the test type string (see test types**)                                                                 |
-| freq         | numMessages    | the number of messages per unit of time (see per)                                                   |
-| per          | per            | the unit of time, for the number of messages,typically '1s' but it can be any duration like `5m3s`  |
-| config       | params         | test dependent configuration parameters object (see documentation for each test)                    |
-| name         | name           | name of the test, optional (used for documenting purposes)                                          |
-| description  | description    | description of the test, optional(used for documenting purposes)                                    |
-| url          | - (nothing)    | overrides the globally set url of the load tester(only used by the load-starter)                    |
+| load-starter | go-load-tester | comment                                                                                            |
+|--------------|----------------|----------------------------------------------------------------------------------------------------|
+| duration     | attackDuration | the duration of the attack (using durationsyntax*)                                                 |
+| test_type    | testType       | the test type string (see test types**)                                                            |
+| freq         | numMessages    | the number of messages per unit of time (see per)                                                  |
+| per          | per            | the unit of time, for the number of messages,typically '1s' but it can be any duration like `5m3s` |
+| config       | params         | test dependent configuration parameters object (see documentation for each test)                   |
+| name         | name           | name of the test, optional (used for documenting purposes)                                         |
+| description  | description    | description of the test, optional(used for documenting purposes)                                   |
+| url          | - (nothing)    | overrides the globally set url of the load tester(only used by the load-starter)                   |
+| labels       | labels         | key value pairs to be used by tests as they see fit                                                |
+
 
 ## Duration parameters
 Durations are specified as strings, in the configuration/python syntax they can also be specified as duration objects.

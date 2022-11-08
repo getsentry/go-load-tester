@@ -24,6 +24,8 @@ def add_vegeta_test(
         name:           Optional[name],
         description:    Optional[str],
         url:            Optional[str],        
+        produce_report: bool=True,  # used internally in load-starter and not serialized
+        labels:         Union[List[List[str]],Mapping[str,str]],
 )
 ```
 
@@ -40,23 +42,26 @@ In JSON format the request structure is:
   "attackDuration": "5m",
   "numMessages": 100,
   "per": "1s",
-  "params": { "name1":  "value1"}
+  "params": { "name1":  "value1"},
+  "labels": [["l1","v1"],["l2","v2"]]
 }
 ```
 
 There are some inconsistencies in the naming below is the table containing the corresponding conversion 
 between the two formats:
 
-| load-starter | go-load-tester | comment                                                                                                 |
-|--------------|----------------|---------------------------------------------------------------------------------------------------------|
-| duration     | attackDuration | the duration of the attack (using durationsyntax*)                                                  |
-| test_type    | testType       | the test type string (see test types**)                                                                 |
-| freq         | numMessages    | the number of messages per unit of time (see per)                                                   |
-| per          | per            | the unit of time, for the number of messages,typically '1s' but it can be any duration like `5m3s`  |
-| config       | params         | test dependent configuration parameters object (see documentation for each test)                    |
-| name         | name           | name of the test, optional (used for documenting purposes)                                          |
-| description  | description    | description of the test, optional(used for documenting purposes)                                    |
-| url          | - (nothing)    | overrides the globally set url of the load tester(only used by the load-starter)                    |
+| load-starter | go-load-tester | comment                                                                                            |
+|--------------|----------------|----------------------------------------------------------------------------------------------------|
+| duration     | attackDuration | the duration of the attack (using durationsyntax*)                                                 |
+| test_type    | testType       | the test type string (see test types**)                                                            |
+| freq         | numMessages    | the number of messages per unit of time (see per)                                                  |
+| per          | per            | the unit of time, for the number of messages,typically '1s' but it can be any duration like `5m3s` |
+| config       | params         | test dependent configuration parameters object (see documentation for each test)                   |
+| name         | name           | name of the test, optional (used for documenting purposes)                                         |
+| description  | description    | description of the test, optional(used for documenting purposes)                                   |
+| url          | - (nothing)    | overrides the globally set url of the load tester(only used by the load-starter)                   |
+| labels       | labels         | key value pairs to be used by tests as they see fit                                                |
+
 
 ## Duration parameters
 Durations are specified as strings, in the configuration/python syntax they can also be specified as duration objects.
@@ -280,27 +285,27 @@ everything else is common and was documented above.
  e.g. consider the following histogram (in json format):
  ```json
  [
-    { "ratio": 5, "maxDelay": "1s"},
-    { "ratio": 3, "maxDelay": "10s"},
-    { "ratio": 2, "maxDelay": "20s"}
+    { "weight": 5, "maxDelay": "1s"},
+    { "weight": 3, "maxDelay": "10s"},
+    { "weight": 2, "maxDelay": "20s"}
  ]
 
  ```
-  In the example below we have the cumulative ratio 5 + 3 + 2 = 10
+  In the example below we have the cumulative weight 5 + 3 + 2 = 10
   The request will be generated so that, on average, for every 10 requests
   5 will be in the first bucket, 3 in the second and the rest of 2 in the third,
   or in other words 50% of the requests will have a timestamp delay of between 0s and 1s,
   30% will have a timestamp delay of between 1s and 10s and 20% between 10s and 20s
-  **Note:** the ratio can be any positive numbers (including 0 if you want to skip an interval),
+  **Note:** the weight can be any positive numbers (including 0 if you want to skip an interval),
   they do not have to add up to 10 (as in the example) or any other number, the
-  same ratio would be achieved by using 0.5,0.3,0.2 or 50,30,20.
+  same weight would be achieved by using 0.5,0.3,0.2 or 50,30,20.
   
 
 
 
 | field               | description     |
 |---------------------|-----------------|
-| ratio | ratio is the relative frequency of requests in this bucket, relative to all other buckets |
+| weight | weight is the relative frequency of requests in this bucket, relative to all other buckets |
 | maxDelay | maxDelay The upper bound of the bucket, the lower bound is the previous bucket upper bound or 0 for the first bucket |
 
 
@@ -313,9 +318,9 @@ everything else is common and was documented above.
  current explanation).
  ```json
  [
-	 { "numProjects": 2, "relativeFreqRatio": 4},
-	 { "numProjects": 3, "relativeFreqRatio": 2},
-	 { "numProjects": 4, "relativeFreqRatio": 1}
+	 { "numProjects": 2, "relativeFreqWeight": 4},
+	 { "numProjects": 3, "relativeFreqWeight": 2},
+	 { "numProjects": 4, "relativeFreqWeight": 1}
  ]
  ```
 
@@ -333,7 +338,7 @@ everything else is common and was documented above.
 | field               | description     |
 |---------------------|-----------------|
 | numProjects | numProjects number of projects that use this profile |
-| relativeFreqRatio | relative frequency of project from this profile in relation with projects from other profiles |
+| relativeFreqWeight | relative frequency of project from this profile in relation with projects from other profiles |
 | timestampHistogram | the timestamp histogram for projects in this profile |
 
 
@@ -347,19 +352,19 @@ everything else is common and was documented above.
   "projectDistribution": [
     {
       "numProjects": 100,
-      "relativeFreqRatio" : 1.0,
+      "relativeFreqWeight" : 1.0,
       "timestampHistogram": [
-        { "ratio": 5, "maxDelay": "1s"},
-        { "ratio": 3, "maxDelay": "10s"},
-        { "ratio": 2, "maxDelay": "20s"},
+        { "weight": 5, "maxDelay": "1s"},
+        { "weight": 3, "maxDelay": "10s"},
+        { "weight": 2, "maxDelay": "20s"},
       ]
     },
     {
       "numProjects": 200,
-      "relativeFreqRatio" : 4.0,
+      "relativeFreqWeight" : 4.0,
       "timestampHistogram": [
-        { "ratio": 20, "maxDelay": "1s"},
-        { "ratio": 1, "maxDelay": "5s"}
+        { "weight": 20, "maxDelay": "1s"},
+        { "weight": 1, "maxDelay": "5s"}
       ]
     }
   ],
