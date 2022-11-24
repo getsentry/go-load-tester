@@ -2,17 +2,16 @@
 Copyright © 2021 Sentry
 
 Generate static documentation of Job definitions
-
 */
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,6 +25,7 @@ import (
 )
 
 const DocFileName = "docs/TestFormat.md"
+const WritingTestsDocFileName = "docs/Writing-tests.md"
 
 type FieldDefinition struct {
 	FieldName     string
@@ -37,6 +37,12 @@ type StructDefinition struct {
 	TypeName      string
 	Documentation string
 	Fields        []FieldDefinition
+}
+
+type GeneralDeclaration struct {
+	Name          string
+	Documentation string
+	Source        string
 }
 
 // structFilter used to filter the structures returned (true means type will not be filtered)
@@ -55,11 +61,122 @@ var makeDocs = &cobra.Command{
 		log.Info().Msgf("Creating documents in docs directory and README")
 		updateTestDocument()
 		updateReadme()
+		updateWriteTestDocument()
 	},
 }
 
+func updateWriteTestDocument() {
+	templateRaw, err := os.ReadFile("_Writing-tests-template.md")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not generate documentation, error reading _Writing-tests-template.md.")
+		return
+	}
+	parsedTemplate, err := template.New("template").Parse(string(templateRaw))
+
+	_ = os.Mkdir("docs", os.ModePerm)
+	writeTestsFile, err := os.Create(WritingTestsDocFileName)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not generate documentation, error creating README.md file.")
+		return
+	}
+	defer func() { _ = writeTestsFile.Close() }()
+
+	documentedTypes := []string{"RegisterTestType", "LoadSplitter", "SimpleLoadSplitter", "LoadTesterBuilder"}
+
+	params := getDocForTypes("tests/main.go", documentedTypes)
+
+	err = parsedTemplate.Execute(writeTestsFile, params)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not generate documentation, error parsing template file.")
+		return
+	}
+}
+
+func getDocForTypes(fileName string, typeNames []string) map[string]string {
+	fset := token.NewFileSet()
+	// var retVal []StructDefinition
+	src, err := os.ReadFile(fileName)
+	if err != nil {
+		log.Error().Err(err).Msgf("Could not read file %s", fileName)
+		return nil
+	}
+	parsedFile, err := parser.ParseFile(fset, fileName, src, parser.ParseComments)
+	if err != nil {
+		log.Error().Err(err).Msgf("Could not parse file %s", fileName)
+		return nil
+	}
+
+	declTemplate := declarationTemplate()
+	retVal := make(map[string]string, len(typeNames))
+
+	for _, val := range typeNames {
+		retVal[val] = "temp"
+	}
+
+	for _, decl := range parsedFile.Decls {
+		var declaration GeneralDeclaration
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			declaration = getFunctionDeclaration(src, d)
+		case *ast.GenDecl:
+			declaration = getTypeDeclaration(src, d)
+		}
+
+		// check if the name is needed
+		if _, ok := retVal[declaration.Name]; ok {
+			buf := new(bytes.Buffer)
+			err = declTemplate.Execute(buf, declaration)
+			retVal[declaration.Name] = buf.String()
+		}
+	}
+
+	return retVal
+}
+
+func declarationTemplate() *template.Template {
+	tmplString := `
+## {{.Name}}
+
+{{.Documentation}}
+~~~go
+{{.Source}}
+~~~
+`
+
+	tmpl, err := template.New("funcDoc").Parse(tmplString)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not parse embedded template for declaration.")
+		panic(err)
+	}
+	return tmpl
+}
+
+func getTypeDeclaration(src []byte, decl *ast.GenDecl) GeneralDeclaration {
+	name := ""
+	if decl.Tok == token.TYPE && decl.Specs != nil && len(decl.Specs) == 1 {
+		typeSpec, ok := decl.Specs[0].(*ast.TypeSpec)
+		if ok {
+			name = typeSpec.Name.Name
+		}
+	}
+
+	return GeneralDeclaration{
+		Name:          name,
+		Documentation: getDoc(decl.Doc, false),
+		Source:        string(src[decl.Pos()-1 : decl.End()]),
+	}
+}
+
+func getFunctionDeclaration(src []byte, decl *ast.FuncDecl) GeneralDeclaration {
+	return GeneralDeclaration{
+		Name:          decl.Name.Name,
+		Documentation: getDoc(decl.Doc, false),
+		Source:        string(src[decl.Type.Pos()-1 : decl.Type.End()]),
+	}
+}
+
 func updateReadme() {
-	templateRaw, err := ioutil.ReadFile("README-template.md")
+	templateRaw, err := os.ReadFile("README-template.md")
 	if err != nil {
 		log.Error().Err(err).Msg("Could not generate documentation, error reading README-template.md.")
 
