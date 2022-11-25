@@ -82,8 +82,8 @@ func SimpleLoadSplitter(masterParams TestParams, numWorkers int) ([]TestParams, 
 }
 
 // RegisterTestType registers the necessary test handlers (LoadTesterBuilder and LoadSplitter) with
-// a test type (a string). This enables the worker loop to retrieve the proper handlers for a
-// test request. The worker loop looks-up the proper handlers by using the request TestParams.Name
+// a test type (a string). This enables the service loop to retrieve the proper handlers for a
+// test request. The service loop looks-up the proper handlers by using the request TestParams.Name
 // field and then starts the attack with the retrieved handlers.
 func RegisterTestType(name string, tester LoadTesterBuilder, splitter LoadSplitter) {
 	testHandlers.lock.Lock()
