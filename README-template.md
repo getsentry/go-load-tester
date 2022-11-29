@@ -8,7 +8,6 @@ Known limitations:
 
 * The framework is currently Sentry-oriented. The data generators that are currently supported are described [here](docs/TestFormat.md#tests).
 * Worker registration/keep-alive behaviour is not very robust
-* Sentry error generation
 
 ## Usage
 
