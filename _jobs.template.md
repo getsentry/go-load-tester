@@ -5,8 +5,10 @@ The load tester also accepts stop commands through its `GET|POST /stop` HTTP end
 
 Typically, these commands originate from the configuration script run by `load-starter`.
 
-This document contains the specification of test commands both in JSON format, as consumed by the `go-load-tester`, 
+This document contains the specification of test commands both in JSON format, as consumed by the `go-load-tester`,
 as well as in python configuration format, as consumed by load-starter.
+
+[More information about the general architecture and writing tests.](./Writing-tests.md)
 
 # General test structure
 
@@ -15,7 +17,7 @@ All load tests share some basic parameters.
 In configuration format the structure is:
 
 ```python
-def add_vegeta_test( 
+def add_vegeta_test(
         duration:       Union[str,duration],
         test_type:      str,
         freq:           int
@@ -23,7 +25,7 @@ def add_vegeta_test(
         config:         Dict[str,any],
         name:           Optional[name],
         description:    Optional[str],
-        url:            Optional[str],        
+        url:            Optional[str],
         produce_report: bool=True,  # used internally in load-starter and not serialized
         labels:         Union[List[List[str]],Mapping[str,str]],
 )
@@ -47,7 +49,7 @@ In JSON format the request structure is:
 }
 ```
 
-There are some inconsistencies in the naming below is the table containing the corresponding conversion 
+There are some inconsistencies in the naming below is the table containing the corresponding conversion
 between the two formats:
 
 | load-starter | go-load-tester | comment                                                                                            |
@@ -73,7 +75,7 @@ using the predefined duration constants: `Day Hour Minute Second Millisecond Mic
 The string specification of duration uses the go language string syntax (summarized below).
 
 From the go documentation:
->A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix, 
+>A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,
 >such as "300ms", "-1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 ### duration syntax
@@ -82,7 +84,7 @@ You can construct a duration using the builtin `duration` function it takes a st
 defined above.
 
 You can also construct a duration using arithmetic operations with existing durations for example using the
-builtin duration constants: `7 * Hour + 2 * Minute` will return a duration equivalent to: 
+builtin duration constants: `7 * Hour + 2 * Minute` will return a duration equivalent to:
 `duration("7h2m")`.
 
 You can mix and match durations built with the two syntaxes: `duration("7h") * 3 + Minute + 3 * Second`
