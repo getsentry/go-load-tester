@@ -11,9 +11,12 @@ set -euxo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $SCRIPT_DIR
 
-IMAGE="europe-west3-docker.pkg.dev/sentry-st-testing/main/go-load-tester"
+REPO=${1:-europe-west3-docker.pkg.dev/sentry-st-testing/main}
+
+IMAGE="${REPO}/go-load-tester"
 TAG=$(git rev-parse HEAD)
 
+echo "Pushing ${IMAGE}:${TAG}"
 docker build -t $IMAGE:$TAG .
 
 docker push $IMAGE:$TAG
