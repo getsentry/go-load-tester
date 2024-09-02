@@ -281,7 +281,7 @@ func worker(targetUrl string, statsdAddr string, configParams *configParams, par
 		default:
 			if loadTester != nil {
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
-				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1000))
+				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1))
 				targeter, seq := loadTester.GetTargeter()
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
 					targeter, seq = loadTester.GetTargeter()
