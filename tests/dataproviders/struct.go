@@ -51,13 +51,15 @@ func NewBatchBuilder(rowBuilder StructValue, batchSize uint64) *BatchBuilder {
 
 func (builder *BatchBuilder) BuildBatch() []map[string]interface{} {
 	builder.lock.Lock()
-	defer builder.lock.Unlock()
+	var start = builder.sequence
+	builder.sequence += builder.batchSize
+	builder.lock.Unlock()
+
 	var ret []map[string]interface{}
 	var i uint64
 	for i = 0; i < builder.batchSize; i++ {
-		ret = append(ret, builder.rowBuilder.GetValue(builder.sequence+i))
+		ret = append(ret, builder.rowBuilder.GetValue(start+i))
 	}
 
-	builder.sequence += builder.batchSize
 	return ret
 }
