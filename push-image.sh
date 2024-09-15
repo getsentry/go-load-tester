@@ -17,6 +17,6 @@ IMAGE="${REPO}/go-load-tester"
 TAG=$(git rev-parse HEAD)
 
 echo "Pushing ${IMAGE}:${TAG}"
-docker build -t $IMAGE:$TAG .
+docker build --platform linux/amd64 -t $IMAGE:$TAG .
 
 docker push $IMAGE:$TAG
