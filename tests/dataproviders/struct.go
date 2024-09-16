@@ -6,7 +6,12 @@ import (
 
 type StructValue struct {
 	valueBuilders map[string]Value
-	flattened     []StructValue
+	// The flattened field is used to create data providers that produce
+	// multi column values that are then merged into the results.
+	// We may want to create values for columns that are statistically
+	// correlated, so they cannot be generated independently. This is
+	// meant to solve this problem. Though it is not implemented yet.
+	flattened []StructValue
 }
 
 func NewStructValue(

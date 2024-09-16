@@ -15,7 +15,7 @@ type ClickhouseInsertJobRaw struct {
 	Config      map[string]ClickhouseFieldRaw `json:"config"`
 }
 
-func (raw ClickhouseInsertJobRaw) Into(result *ClickhouseInsertJob) error {
+func (raw *ClickhouseInsertJobRaw) Into(result *ClickhouseInsertJob) error {
 	result.BatchSize = raw.BatchSize
 	result.TableName = raw.TableName
 	result.PartitionId = raw.PartitionId

@@ -26,7 +26,7 @@ func TestSequence(t *testing.T) {
 
 func TestRandomSet(t *testing.T) {
 	set, _ := NewRandomSetFromConfig(map[string]interface{}{
-		"alphabet": []string{"a", "b", "c"},
+		"alphabet": []interface{}{"a", "b", "c"},
 	})
 	value := set.GetValue(1)
 	if !(value == "a" || value == "b" || value == "c") {
@@ -43,8 +43,8 @@ func TestTimeStamp(t *testing.T) {
 
 func TestRandomInt(t *testing.T) {
 	ts, _ := NewRandomIntegerFromConfig(map[string]interface{}{
-		"min": 5,
-		"max": 5,
+		"min": 5.0,
+		"max": 5.0,
 	})
 	val := ts.GetValue(1)
 	if val != 5 {
@@ -54,8 +54,8 @@ func TestRandomInt(t *testing.T) {
 
 func TestRandomString(t *testing.T) {
 	val, _ := NewRandomStringFromConfig(map[string]interface{}{
-		"minSize": 5,
-		"maxSize": 5,
+		"minSize": 5.0,
+		"maxSize": 5.0,
 	})
 
 	v := val.GetValue(1)

@@ -171,6 +171,7 @@ func NewRandomIntegerFromConfig(config interface{}) (*RandomInteger, error) {
 	if !exists {
 		return nil, fmt.Errorf("missing max attribute")
 	}
+	// TODO: Figure out why I cannot use integers here.
 	return &RandomInteger{
 		min: int(min.(float64)),
 		max: int(max.(float64)),
