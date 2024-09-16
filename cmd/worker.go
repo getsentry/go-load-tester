@@ -1,6 +1,5 @@
 /*
 Copyright © 2021 Sentry
-
 */
 package cmd
 
@@ -37,7 +36,7 @@ var workerCmd = &cobra.Command{
 			log.Info().Msgf("No file found at %s using the default RandomProjectProvider", fileProjectPath)
 		}
 
-		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl, runWorkerParams.masterUrl, runConfig.statsdAddr)
+		web_server.RunWorkerWebServer(runConfig.port, runConfig.targetUrl, runWorkerParams.masterUrl, runConfig.statsdAddr, runConfig.workers)
 	},
 }
 
