@@ -92,7 +92,7 @@ func collectWorkerMetricsLoop(statsdClient *statsd.Client) {
 	}
 }
 
-func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdAddr string) {
+func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdAddr string, workers int) {
 
 	paramChannel := make(chan tests.TestParams)
 	defer close(paramChannel)
@@ -113,7 +113,7 @@ func RunWorkerWebServer(port string, targetUrl string, masterUrl string, statsdA
 		log.Error().Err(err).Msg("Failed to register with master, worker stopping")
 		return
 	}
-	go worker(targetUrl, statsdAddr, config, paramChannel)
+	go worker(targetUrl, statsdAddr, workers, config, paramChannel)
 	if len(port) > 0 {
 		port = fmt.Sprintf(":%s", port)
 	}
@@ -258,7 +258,7 @@ func createLoadTester(targetUrl string, params tests.TestParams) tests.LoadTeste
 // The worker uses a command channel to accept new commands
 // Once a command is received the current attack (if there is a current attack)
 // is stopped and a new attack started
-func worker(targetUrl string, statsdAddr string, configParams *configParams, paramsChan <-chan tests.TestParams) {
+func worker(targetUrl string, statsdAddr string, maxWorkers int, configParams *configParams, paramsChan <-chan tests.TestParams) {
 
 	if configParams != nil && len(configParams.StatsdServerUrl) > 0 {
 		// override configuration with master statsdUrl
@@ -281,7 +281,7 @@ func worker(targetUrl string, statsdAddr string, configParams *configParams, par
 		default:
 			if loadTester != nil {
 				rate := vegeta.Rate{Freq: params.NumMessages, Per: params.Per}
-				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(1000))
+				attacker := vegeta.NewAttacker(vegeta.Timeout(time.Millisecond*500), vegeta.Redirects(0), vegeta.MaxWorkers(uint64(maxWorkers)))
 				targeter, seq := loadTester.GetTargeter()
 				for res := range attacker.Attack(targeter, rate, params.AttackDuration, params.Description) {
 					targeter, seq = loadTester.GetTargeter()
