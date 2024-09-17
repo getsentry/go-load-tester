@@ -107,6 +107,13 @@ func BuildField(config ClickhouseFieldRaw, partitions int, partition_id int) (Va
 			return nil, err
 		}
 		return value, nil
+	
+	case "randomtimestamp":
+		value, err := NewRandomTimestampFromConfig(value_config)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
 
 	case "uuid":
 		return &UUIDGenerator{}, nil
