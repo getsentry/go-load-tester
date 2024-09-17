@@ -149,7 +149,7 @@ type RandomTimestamp struct {
     format string
 }
 
-func (rt *RandomTimestamp) GetValue() interface{} {
+func (rt *RandomTimestamp) GetValue(sequence uint64,) interface{} {
     duration := rt.end.Sub(rt.start)
     randomDuration := time.Duration(rand.Int63n(int64(duration)))
     randomTime := rt.start.Add(randomDuration)

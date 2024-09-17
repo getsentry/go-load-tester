@@ -54,7 +54,7 @@ func TestRandomTimestamp(t *testing.T) {
         t.Fatalf("Error initializing RandomTimestamp: %v", err)
     }
 
-    randomTimeStr := randomTimestamp.GetValue().(string)
+    randomTimeStr := randomTimestamp.GetValue(1).(string)
     randomTime, err := time.Parse("2006-01-02T15:04:05", randomTimeStr)
     if err != nil {
         t.Fatalf("Error parsing random timestamp: %v", err)
