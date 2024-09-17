@@ -142,6 +142,55 @@ func NewTimestampFromConfig(config interface{}) (*Timestamp, error) {
 	}, nil
 }
 
+// RandomTimestamp
+type RandomTimestamp struct {
+    start  time.Time
+    end    time.Time
+    format string
+}
+
+func (rt *RandomTimestamp) GetValue() interface{} {
+    duration := rt.end.Sub(rt.start)
+    randomDuration := time.Duration(rand.Int63n(int64(duration)))
+    randomTime := rt.start.Add(randomDuration)
+    return randomTime.Format(rt.format)
+}
+
+func NewRandomTimestampFromConfig(config interface{}) (*RandomTimestamp, error) {
+    valueConfig, ok := config.(map[string]interface{})
+    if !ok {
+        return nil, fmt.Errorf("config type invalid %s", valueConfig)
+    }
+    startVal, exists := valueConfig["start"]
+    if !exists {
+        return nil, fmt.Errorf("missing start attribute")
+    }
+    endVal, exists := valueConfig["end"]
+    if !exists {
+        return nil, fmt.Errorf("missing end attribute")
+    }
+    formatVal, exists := valueConfig["format"]
+    if !exists {
+        return nil, fmt.Errorf("missing format attribute")
+    }
+
+    format := formatVal.(string)
+    start, err := time.Parse(format, startVal.(string))
+    if err != nil {
+        return nil, fmt.Errorf("invalid start time format: %v", err)
+    }
+    end, err := time.Parse(format, endVal.(string))
+    if err != nil {
+        return nil, fmt.Errorf("invalid end time format: %v", err)
+    }
+
+    return &RandomTimestamp{
+        start:  start,
+        end:    end,
+        format: format,
+    }, nil
+}
+
 // UUID
 type UUIDGenerator struct{}
 
