@@ -115,6 +115,13 @@ func BuildField(config ClickhouseFieldRaw, partitions int, partition_id int) (Va
 		}
 		return value, nil
 
+	case "sequentialTimestamp":
+		value, err := NewSequentialTimestampFromConfig(value_config)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
+
 	case "uuid":
 		return &UUIDGenerator{}, nil
 

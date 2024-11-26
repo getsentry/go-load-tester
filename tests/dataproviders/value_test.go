@@ -43,35 +43,59 @@ func TestTimeStamp(t *testing.T) {
 }
 
 func TestRandomTimestamp(t *testing.T) {
-    config := map[string]interface{}{
-        "start":  "2023-01-01T00:00:00",
-        "end":    "2023-12-31T23:59:59",
-        "format": "2006-01-02T15:04:05",
-    }
+	config := map[string]interface{}{
+		"start":  "2023-01-01T00:00:00",
+		"end":    "2023-12-31T23:59:59",
+		"format": "2006-01-02T15:04:05",
+	}
 
-    randomTimestamp, err := NewRandomTimestampFromConfig(config)
-    if err != nil {
-        t.Fatalf("Error initializing RandomTimestamp: %v", err)
-    }
+	randomTimestamp, err := NewRandomTimestampFromConfig(config)
+	if err != nil {
+		t.Fatalf("Error initializing RandomTimestamp: %v", err)
+	}
 
-    randomTimeStr := randomTimestamp.GetValue(1).(string)
-    randomTime, err := time.Parse("2006-01-02T15:04:05", randomTimeStr)
-    if err != nil {
-        t.Fatalf("Error parsing random timestamp: %v", err)
-    }
+	randomTimeStr := randomTimestamp.GetValue(1).(string)
+	randomTime, err := time.Parse("2006-01-02T15:04:05", randomTimeStr)
+	if err != nil {
+		t.Fatalf("Error parsing random timestamp: %v", err)
+	}
 
-    startTime, err := time.Parse("2006-01-02T15:04:05", config["start"].(string))
-    if err != nil {
-        t.Fatalf("Error parsing start time: %v", err)
-    }
-    endTime, err := time.Parse("2006-01-02T15:04:05", config["end"].(string))
-    if err != nil {
-        t.Fatalf("Error parsing end time: %v", err)
-    }
+	startTime, err := time.Parse("2006-01-02T15:04:05", config["start"].(string))
+	if err != nil {
+		t.Fatalf("Error parsing start time: %v", err)
+	}
+	endTime, err := time.Parse("2006-01-02T15:04:05", config["end"].(string))
+	if err != nil {
+		t.Fatalf("Error parsing end time: %v", err)
+	}
 
-    if randomTime.Before(startTime) || randomTime.After(endTime) {
-        t.Errorf("Generated timestamp %v is out of range [%v, %v]", randomTime, startTime, endTime)
-    }
+	if randomTime.Before(startTime) || randomTime.After(endTime) {
+		t.Errorf("Generated timestamp %v is out of range [%v, %v]", randomTime, startTime, endTime)
+	}
+}
+
+func TestSequentialTimestamp(t *testing.T) {
+	baseTime := time.Now().UTC()
+	config := map[string]interface{}{
+		"start":  baseTime.Format(time.RFC3339Nano),
+		"step":   "1µs",
+		"format": time.RFC3339Nano,
+	}
+
+	sequentialTimestamp, err := NewSequentialTimestampFromConfig(config)
+	if err != nil {
+		t.Fatalf("Error initializing SequentialTimestamp: %v", err)
+	}
+	v0 := sequentialTimestamp.GetValue(0).(string)
+	v1 := sequentialTimestamp.GetValue(1).(string)
+
+	if !(v0 == baseTime.Format(time.RFC3339Nano)) {
+		t.Error("0th element of sequence should equal baseTime")
+	}
+
+	if !(v1 == baseTime.Add(time.Microsecond).Format(time.RFC3339Nano)) {
+		t.Error("1st element of sequence should equal baseTime + 1µs")
+	}
 }
 
 func TestRandomInt(t *testing.T) {
