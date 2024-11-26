@@ -107,8 +107,8 @@ func BuildField(config ClickhouseFieldRaw, partitions int, partition_id int) (Va
 			return nil, err
 		}
 		return value, nil
-	
-	case "randomtimestamp":
+
+	case "randomTimestamp":
 		value, err := NewRandomTimestampFromConfig(value_config)
 		if err != nil {
 			return nil, err
