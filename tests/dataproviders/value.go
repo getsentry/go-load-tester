@@ -144,51 +144,98 @@ func NewTimestampFromConfig(config interface{}) (*Timestamp, error) {
 
 // RandomTimestamp
 type RandomTimestamp struct {
-    start  time.Time
-    end    time.Time
-    format string
+	start  time.Time
+	end    time.Time
+	format string
 }
 
-func (rt *RandomTimestamp) GetValue(sequence uint64,) interface{} {
-    duration := rt.end.Sub(rt.start)
-    randomDuration := time.Duration(rand.Int63n(int64(duration)))
-    randomTime := rt.start.Add(randomDuration)
-    return randomTime.Format(rt.format)
+func (rt *RandomTimestamp) GetValue(sequence uint64) interface{} {
+	duration := rt.end.Sub(rt.start)
+	randomDuration := time.Duration(rand.Int63n(int64(duration)))
+	randomTime := rt.start.Add(randomDuration)
+	return randomTime.Format(rt.format)
 }
 
 func NewRandomTimestampFromConfig(config interface{}) (*RandomTimestamp, error) {
-    valueConfig, ok := config.(map[string]interface{})
-    if !ok {
-        return nil, fmt.Errorf("config type invalid %s", valueConfig)
-    }
-    startVal, exists := valueConfig["start"]
-    if !exists {
-        return nil, fmt.Errorf("missing start attribute")
-    }
-    endVal, exists := valueConfig["end"]
-    if !exists {
-        return nil, fmt.Errorf("missing end attribute")
-    }
-    formatVal, exists := valueConfig["format"]
-    if !exists {
-        return nil, fmt.Errorf("missing format attribute")
-    }
+	valueConfig, ok := config.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("config type invalid %s", valueConfig)
+	}
+	startVal, exists := valueConfig["start"]
+	if !exists {
+		return nil, fmt.Errorf("missing start attribute")
+	}
+	endVal, exists := valueConfig["end"]
+	if !exists {
+		return nil, fmt.Errorf("missing end attribute")
+	}
+	formatVal, exists := valueConfig["format"]
+	if !exists {
+		return nil, fmt.Errorf("missing format attribute")
+	}
 
-    format := formatVal.(string)
-    start, err := time.Parse(format, startVal.(string))
-    if err != nil {
-        return nil, fmt.Errorf("invalid start time format: %v", err)
-    }
-    end, err := time.Parse(format, endVal.(string))
-    if err != nil {
-        return nil, fmt.Errorf("invalid end time format: %v", err)
-    }
+	format := formatVal.(string)
+	start, err := time.Parse(format, startVal.(string))
+	if err != nil {
+		return nil, fmt.Errorf("invalid start time format: %v", err)
+	}
+	end, err := time.Parse(format, endVal.(string))
+	if err != nil {
+		return nil, fmt.Errorf("invalid end time format: %v", err)
+	}
 
-    return &RandomTimestamp{
-        start:  start,
-        end:    end,
-        format: format,
-    }, nil
+	return &RandomTimestamp{
+		start:  start,
+		end:    end,
+		format: format,
+	}, nil
+}
+
+// SequentialTimestamp
+type SequentialTimestamp struct {
+	start  time.Time
+	step   time.Duration
+	format string
+}
+
+func (seq *SequentialTimestamp) GetValue(sequence uint64) interface{} {
+	timestamp := seq.start.Add(seq.step * time.Duration(sequence))
+	return timestamp.Format(seq.format)
+}
+
+func NewSequentialTimestampFromConfig(config interface{}) (*SequentialTimestamp, error) {
+	valueConfig, ok := config.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("config type invalid %s", valueConfig)
+	}
+	startVal, exists := valueConfig["start"]
+	if !exists {
+		return nil, fmt.Errorf("missing start attribute")
+	}
+	stepVal, exists := valueConfig["step"]
+	if !exists {
+		return nil, fmt.Errorf("missing step attribute")
+	}
+	formatVal, exists := valueConfig["format"]
+	if !exists {
+		return nil, fmt.Errorf("missing format attribute")
+	}
+
+	format := formatVal.(string)
+	start, err := time.Parse(format, startVal.(string))
+	if err != nil {
+		return nil, fmt.Errorf("invalid start time format: %v", err)
+	}
+	stepValDuration, err := time.ParseDuration(stepVal.(string))
+	if err != nil {
+		return nil, fmt.Errorf("invalid step type (should be time.Duration): %v", stepVal)
+	}
+
+	return &SequentialTimestamp{
+		start:  start,
+		step:   stepValDuration,
+		format: format,
+	}, nil
 }
 
 // UUID
