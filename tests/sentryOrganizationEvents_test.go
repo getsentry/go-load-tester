@@ -8,7 +8,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-func TestSentryDiscoverEventsUnmarshal(t *testing.T) {
+func TestSentryOrganizationEventsUnmarshal(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "my-org",
@@ -18,8 +18,8 @@ func TestSentryDiscoverEventsUnmarshal(t *testing.T) {
 		"sortBy": ["-count()"]
 	}`)
 
-	lt := newSentryDiscoverEventsLoadTester("https://sentry.io", raw)
-	slt, ok := lt.(*sentryDiscoverEventsLoadTester)
+	lt := newSentryOrganizationEventsLoadTester("https://sentry.io", raw)
+	slt, ok := lt.(*sentryOrganizationEventsLoadTester)
 	if !ok {
 		t.Fatal("unexpected type")
 	}
@@ -31,7 +31,7 @@ func TestSentryDiscoverEventsUnmarshal(t *testing.T) {
 	}
 }
 
-func TestSentryDiscoverEventsTargeter(t *testing.T) {
+func TestSentryOrganizationEventsTargeter(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org",
@@ -42,7 +42,7 @@ func TestSentryDiscoverEventsTargeter(t *testing.T) {
 		"sortBy": ["-count()"]
 	}`)
 
-	lt := newSentryDiscoverEventsLoadTester("https://sentry.io", raw)
+	lt := newSentryOrganizationEventsLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	tgt := &vegeta.Target{}
@@ -80,13 +80,13 @@ func TestSentryDiscoverEventsTargeter(t *testing.T) {
 	}
 }
 
-func TestSentryDiscoverEventsTargeterDefaults(t *testing.T) {
+func TestSentryOrganizationEventsTargeterDefaults(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org"
 	}`)
 
-	lt := newSentryDiscoverEventsLoadTester("https://sentry.io", raw)
+	lt := newSentryOrganizationEventsLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	tgt := &vegeta.Target{}
@@ -107,13 +107,13 @@ func TestSentryDiscoverEventsTargeterDefaults(t *testing.T) {
 	}
 }
 
-func TestSentryDiscoverEventsTargeterNilTarget(t *testing.T) {
+func TestSentryOrganizationEventsTargeterNilTarget(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org"
 	}`)
 
-	lt := newSentryDiscoverEventsLoadTester("https://sentry.io", raw)
+	lt := newSentryOrganizationEventsLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	if err := targeter(nil); err != vegeta.ErrNilTarget {

@@ -9,7 +9,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-func TestSentryIssueDetailUnmarshal(t *testing.T) {
+func TestSentryGroupDetailsUnmarshal(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "my-org",
@@ -17,8 +17,8 @@ func TestSentryIssueDetailUnmarshal(t *testing.T) {
 		"detailWeight": 7
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
-	slt, ok := lt.(*sentryIssueDetailLoadTester)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
+	slt, ok := lt.(*sentryGroupDetailsLoadTester)
 	if !ok {
 		t.Fatal("unexpected type")
 	}
@@ -30,14 +30,14 @@ func TestSentryIssueDetailUnmarshal(t *testing.T) {
 	}
 }
 
-func TestSentryIssueDetailDefaultWeights(t *testing.T) {
+func TestSentryGroupDetailsDefaultWeights(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "my-org"
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
-	slt := lt.(*sentryIssueDetailLoadTester)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
+	slt := lt.(*sentryGroupDetailsLoadTester)
 	if slt.params.DetailWeight != 1 {
 		t.Errorf("expected default detailWeight 1, got %d", slt.params.DetailWeight)
 	}
@@ -46,7 +46,7 @@ func TestSentryIssueDetailDefaultWeights(t *testing.T) {
 	}
 }
 
-func TestSentryIssueDetailTargeter(t *testing.T) {
+func TestSentryGroupDetailsTargeter(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org",
@@ -54,8 +54,8 @@ func TestSentryIssueDetailTargeter(t *testing.T) {
 		"latestEventWeight": 0
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
-	slt := lt.(*sentryIssueDetailLoadTester)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
+	slt := lt.(*sentryGroupDetailsLoadTester)
 	slt.issueIds = []string{"12345"}
 	targeter, _ := slt.GetTargeter()
 
@@ -80,7 +80,7 @@ func TestSentryIssueDetailTargeter(t *testing.T) {
 	}
 }
 
-func TestSentryIssueDetailTargeterLatestEventOnly(t *testing.T) {
+func TestSentryGroupDetailsTargeterLatestEventOnly(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org",
@@ -88,8 +88,8 @@ func TestSentryIssueDetailTargeterLatestEventOnly(t *testing.T) {
 		"latestEventWeight": 1
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
-	slt := lt.(*sentryIssueDetailLoadTester)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
+	slt := lt.(*sentryGroupDetailsLoadTester)
 	slt.issueIds = []string{"99999"}
 	targeter, _ := slt.GetTargeter()
 
@@ -104,7 +104,7 @@ func TestSentryIssueDetailTargeterLatestEventOnly(t *testing.T) {
 	}
 }
 
-func TestSentryIssueDetailTargeterWeightedDistribution(t *testing.T) {
+func TestSentryGroupDetailsTargeterWeightedDistribution(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org",
@@ -112,8 +112,8 @@ func TestSentryIssueDetailTargeterWeightedDistribution(t *testing.T) {
 		"latestEventWeight": 3
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
-	slt := lt.(*sentryIssueDetailLoadTester)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
+	slt := lt.(*sentryGroupDetailsLoadTester)
 	slt.issueIds = []string{"12345"}
 	targeter, _ := slt.GetTargeter()
 
@@ -141,13 +141,13 @@ func TestSentryIssueDetailTargeterWeightedDistribution(t *testing.T) {
 	}
 }
 
-func TestSentryIssueDetailTargeterNoIssueIds(t *testing.T) {
+func TestSentryGroupDetailsTargeterNoIssueIds(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org"
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	tgt := &vegeta.Target{}
@@ -157,14 +157,14 @@ func TestSentryIssueDetailTargeterNoIssueIds(t *testing.T) {
 	}
 }
 
-func TestSentryIssueDetailTargeterNilTarget(t *testing.T) {
+func TestSentryGroupDetailsTargeterNilTarget(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org"
 	}`)
 
-	lt := newSentryIssueDetailLoadTester("https://sentry.io", raw)
-	slt := lt.(*sentryIssueDetailLoadTester)
+	lt := newSentryGroupDetailsLoadTester("https://sentry.io", raw)
+	slt := lt.(*sentryGroupDetailsLoadTester)
 	slt.issueIds = []string{"123"}
 	targeter, _ := slt.GetTargeter()
 

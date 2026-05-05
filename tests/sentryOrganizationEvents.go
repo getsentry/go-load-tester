@@ -9,7 +9,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-type SentryDiscoverEventsJob struct {
+type SentryOrganizationEventsJob struct {
 	SentryReadAPICommon `json:",inline"`
 	FieldSets           [][]string `json:"fieldSets,omitempty"`
 	Datasets            []string   `json:"datasets,omitempty"`
@@ -17,21 +17,21 @@ type SentryDiscoverEventsJob struct {
 	SortBy              []string   `json:"sortBy,omitempty"`
 }
 
-type sentryDiscoverEventsLoadTester struct {
+type sentryOrganizationEventsLoadTester struct {
 	url    string
-	params SentryDiscoverEventsJob
+	params SentryOrganizationEventsJob
 }
 
-func newSentryDiscoverEventsLoadTester(targetUrl string, rawParams json.RawMessage) LoadTester {
-	var params SentryDiscoverEventsJob
+func newSentryOrganizationEventsLoadTester(targetUrl string, rawParams json.RawMessage) LoadTester {
+	var params SentryOrganizationEventsJob
 	if err := json.Unmarshal(rawParams, &params); err != nil {
-		log.Error().Err(err).Msgf("invalid sentryDiscoverEvents params received\nraw data\n%s", rawParams)
+		log.Error().Err(err).Msgf("invalid sentryOrganizationEvents params received\nraw data\n%s", rawParams)
 	}
-	log.Trace().Msgf("SentryDiscoverEvents generation for:\n%+v", params)
-	return &sentryDiscoverEventsLoadTester{url: targetUrl, params: params}
+	log.Trace().Msgf("SentryOrganizationEvents generation for:\n%+v", params)
+	return &sentryOrganizationEventsLoadTester{url: targetUrl, params: params}
 }
 
-func (lt *sentryDiscoverEventsLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
+func (lt *sentryOrganizationEventsLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	common := lt.params.SentryReadAPICommon
 	fieldSets := lt.params.FieldSets
 	datasets := lt.params.Datasets
@@ -78,8 +78,8 @@ func (lt *sentryDiscoverEventsLoadTester) GetTargeter() (vegeta.Targeter, uint64
 	}, 0
 }
 
-func (lt *sentryDiscoverEventsLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {}
+func (lt *sentryOrganizationEventsLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {}
 
 func init() {
-	RegisterTestType("sentryDiscoverEvents", newSentryDiscoverEventsLoadTester, nil)
+	RegisterTestType("sentryOrganizationEvents", newSentryOrganizationEventsLoadTester, nil)
 }

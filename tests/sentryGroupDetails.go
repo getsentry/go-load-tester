@@ -13,23 +13,23 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-type SentryIssueDetailJob struct {
+type SentryGroupDetailsJob struct {
 	SentryReadAPICommon `json:",inline"`
 	FetchLimit          int `json:"fetchLimit,omitempty"`
 	LatestEventWeight   int `json:"latestEventWeight,omitempty"`
 	DetailWeight        int `json:"detailWeight,omitempty"`
 }
 
-type sentryIssueDetailLoadTester struct {
+type sentryGroupDetailsLoadTester struct {
 	url      string
-	params   SentryIssueDetailJob
+	params   SentryGroupDetailsJob
 	issueIds []string
 }
 
-func newSentryIssueDetailLoadTester(targetUrl string, rawParams json.RawMessage) LoadTester {
-	var params SentryIssueDetailJob
+func newSentryGroupDetailsLoadTester(targetUrl string, rawParams json.RawMessage) LoadTester {
+	var params SentryGroupDetailsJob
 	if err := json.Unmarshal(rawParams, &params); err != nil {
-		log.Error().Err(err).Msgf("invalid sentryIssueDetail params received\nraw data\n%s", rawParams)
+		log.Error().Err(err).Msgf("invalid sentryGroupDetails params received\nraw data\n%s", rawParams)
 	}
 
 	if params.FetchLimit == 0 {
@@ -43,16 +43,16 @@ func newSentryIssueDetailLoadTester(targetUrl string, rawParams json.RawMessage)
 	// instead we just do a single GET to the issue stream endpoint
 	issueIds := fetchIssueIds(targetUrl, params)
 	if len(issueIds) > 0 {
-		log.Info().Msgf("Fetched %d issue IDs for sentryIssueDetail", len(issueIds))
+		log.Info().Msgf("Fetched %d issue IDs for sentryGroupDetails", len(issueIds))
 	} else {
-		log.Warn().Msg("sentryIssueDetail: no issues found during init — targeter will return errors")
+		log.Warn().Msg("sentryGroupDetails: no issues found during init — targeter will return errors")
 	}
 
-	log.Trace().Msgf("SentryIssueDetail generation for:\n%+v", params)
-	return &sentryIssueDetailLoadTester{url: targetUrl, params: params, issueIds: issueIds}
+	log.Trace().Msgf("SentryGroupDetails generation for:\n%+v", params)
+	return &sentryGroupDetailsLoadTester{url: targetUrl, params: params, issueIds: issueIds}
 }
 
-func fetchIssueIds(baseURL string, params SentryIssueDetailJob) []string {
+func fetchIssueIds(baseURL string, params SentryGroupDetailsJob) []string {
 	common := params.SentryReadAPICommon
 	queryParams := url.Values{}
 	queryParams.Set("query", "is:unresolved")
@@ -65,7 +65,7 @@ func fetchIssueIds(baseURL string, params SentryIssueDetailJob) []string {
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
-		log.Error().Err(err).Msg("sentryIssueDetail: failed to build fetch request")
+		log.Error().Err(err).Msg("sentryGroupDetails: failed to build fetch request")
 		return nil
 	}
 	req.Header.Set("Authorization", sentryReadAuthHeader(common))
@@ -73,19 +73,19 @@ func fetchIssueIds(baseURL string, params SentryIssueDetailJob) []string {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Error().Err(err).Msg("sentryIssueDetail: failed to fetch issue IDs")
+		log.Error().Err(err).Msg("sentryGroupDetails: failed to fetch issue IDs")
 		return nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Error().Msgf("sentryIssueDetail: fetch issue IDs returned status %d", resp.StatusCode)
+		log.Error().Msgf("sentryGroupDetails: fetch issue IDs returned status %d", resp.StatusCode)
 		return nil
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("sentryIssueDetail: failed to read response body")
+		log.Error().Err(err).Msg("sentryGroupDetails: failed to read response body")
 		return nil
 	}
 
@@ -93,7 +93,7 @@ func fetchIssueIds(baseURL string, params SentryIssueDetailJob) []string {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(body, &issues); err != nil {
-		log.Error().Err(err).Msg("sentryIssueDetail: failed to parse issue IDs")
+		log.Error().Err(err).Msg("sentryGroupDetails: failed to parse issue IDs")
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func fetchIssueIds(baseURL string, params SentryIssueDetailJob) []string {
 	return ids
 }
 
-func (lt *sentryIssueDetailLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
+func (lt *sentryGroupDetailsLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	common := lt.params.SentryReadAPICommon
 	issueIds := lt.issueIds
 	detailWeight := lt.params.DetailWeight
@@ -119,7 +119,7 @@ func (lt *sentryIssueDetailLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 		}
 
 		if len(issueIds) == 0 {
-			return fmt.Errorf("sentryIssueDetail: no issue IDs configured")
+			return fmt.Errorf("sentryGroupDetails: no issue IDs configured")
 		}
 
 		tgt.Method = "GET"
@@ -144,8 +144,8 @@ func (lt *sentryIssueDetailLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	}, 0
 }
 
-func (lt *sentryIssueDetailLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {}
+func (lt *sentryGroupDetailsLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {}
 
 func init() {
-	RegisterTestType("sentryIssueDetail", newSentryIssueDetailLoadTester, nil)
+	RegisterTestType("sentryGroupDetails", newSentryGroupDetailsLoadTester, nil)
 }

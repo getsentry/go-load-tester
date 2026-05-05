@@ -9,27 +9,27 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-type SentryIssueStreamJob struct {
+type SentryOrganizationGroupIndexJob struct {
 	SentryReadAPICommon `json:",inline"`
 	SortOptions         []string `json:"sortOptions,omitempty"`
 	Queries             []string `json:"queries,omitempty"`
 }
 
-type sentryIssueStreamLoadTester struct {
+type sentryOrganizationGroupIndexLoadTester struct {
 	url    string
-	params SentryIssueStreamJob
+	params SentryOrganizationGroupIndexJob
 }
 
-func newSentryIssueStreamLoadTester(targetUrl string, rawParams json.RawMessage) LoadTester {
-	var params SentryIssueStreamJob
+func newSentryOrganizationGroupIndexLoadTester(targetUrl string, rawParams json.RawMessage) LoadTester {
+	var params SentryOrganizationGroupIndexJob
 	if err := json.Unmarshal(rawParams, &params); err != nil {
-		log.Error().Err(err).Msgf("invalid sentryIssueStream params received\nraw data\n%s", rawParams)
+		log.Error().Err(err).Msgf("invalid sentryOrganizationGroupIndex params received\nraw data\n%s", rawParams)
 	}
-	log.Trace().Msgf("SentryIssueStream generation for:\n%+v", params)
-	return &sentryIssueStreamLoadTester{url: targetUrl, params: params}
+	log.Trace().Msgf("SentryOrganizationGroupIndex generation for:\n%+v", params)
+	return &sentryOrganizationGroupIndexLoadTester{url: targetUrl, params: params}
 }
 
-func (lt *sentryIssueStreamLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
+func (lt *sentryOrganizationGroupIndexLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	common := lt.params.SentryReadAPICommon
 	sortOptions := lt.params.SortOptions
 	queries := lt.params.Queries
@@ -58,8 +58,8 @@ func (lt *sentryIssueStreamLoadTester) GetTargeter() (vegeta.Targeter, uint64) {
 	}, 0
 }
 
-func (lt *sentryIssueStreamLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {}
+func (lt *sentryOrganizationGroupIndexLoadTester) ProcessResult(_ *vegeta.Result, _ uint64) {}
 
 func init() {
-	RegisterTestType("sentryIssueStream", newSentryIssueStreamLoadTester, nil)
+	RegisterTestType("sentryOrganizationGroupIndex", newSentryOrganizationGroupIndexLoadTester, nil)
 }

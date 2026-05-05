@@ -8,7 +8,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-func TestSentryIssueStreamUnmarshal(t *testing.T) {
+func TestSentryOrganizationGroupIndexUnmarshal(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "my-org",
@@ -18,8 +18,8 @@ func TestSentryIssueStreamUnmarshal(t *testing.T) {
 		"queries": ["is:unresolved"]
 	}`)
 
-	lt := newSentryIssueStreamLoadTester("https://sentry.io", raw)
-	slt, ok := lt.(*sentryIssueStreamLoadTester)
+	lt := newSentryOrganizationGroupIndexLoadTester("https://sentry.io", raw)
+	slt, ok := lt.(*sentryOrganizationGroupIndexLoadTester)
 	if !ok {
 		t.Fatal("unexpected type")
 	}
@@ -34,7 +34,7 @@ func TestSentryIssueStreamUnmarshal(t *testing.T) {
 	}
 }
 
-func TestSentryIssueStreamTargeter(t *testing.T) {
+func TestSentryOrganizationGroupIndexTargeter(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org",
@@ -45,7 +45,7 @@ func TestSentryIssueStreamTargeter(t *testing.T) {
 		"queries": ["is:unresolved"]
 	}`)
 
-	lt := newSentryIssueStreamLoadTester("https://sentry.io", raw)
+	lt := newSentryOrganizationGroupIndexLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	tgt := &vegeta.Target{}
@@ -84,13 +84,13 @@ func TestSentryIssueStreamTargeter(t *testing.T) {
 	}
 }
 
-func TestSentryIssueStreamTargeterDefaults(t *testing.T) {
+func TestSentryOrganizationGroupIndexTargeterDefaults(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org"
 	}`)
 
-	lt := newSentryIssueStreamLoadTester("https://sentry.io", raw)
+	lt := newSentryOrganizationGroupIndexLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	tgt := &vegeta.Target{}
@@ -113,13 +113,13 @@ func TestSentryIssueStreamTargeterDefaults(t *testing.T) {
 	}
 }
 
-func TestSentryIssueStreamTargeterNilTarget(t *testing.T) {
+func TestSentryOrganizationGroupIndexTargeterNilTarget(t *testing.T) {
 	raw := json.RawMessage(`{
 		"authToken": "sntrys_test",
 		"organizationSlug": "test-org"
 	}`)
 
-	lt := newSentryIssueStreamLoadTester("https://sentry.io", raw)
+	lt := newSentryOrganizationGroupIndexLoadTester("https://sentry.io", raw)
 	targeter, _ := lt.GetTargeter()
 
 	if err := targeter(nil); err != vegeta.ErrNilTarget {
