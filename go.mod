@@ -2,6 +2,8 @@ module github.com/getsentry/go-load-tester
 
 go 1.18
 
+toolchain go1.26.10
+
 require (
 	github.com/DataDog/datadog-go/v5 v5.1.0
 	github.com/gin-gonic/gin v1.7.7
